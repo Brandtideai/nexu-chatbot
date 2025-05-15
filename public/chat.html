@@ -10,7 +10,6 @@
     --bg-dark: #0f0f0f;
     --font: 'Segoe UI', sans-serif;
     --shadow: 0 0 16px rgba(38, 166, 154, 0.6);
-    --glow-border: linear-gradient(145deg, #26a69a, #20c9b4);
   }
   body {
     margin: 0;
@@ -30,20 +29,15 @@
     width: 92vw;
     max-width: 420px;
     max-height: 75vh;
-    background: url('https://www.transparenttextures.com/patterns/circles.png') repeat, var(--bg-dark);
     border-radius: 24px;
     box-shadow: var(--shadow);
     z-index: 9999;
     flex-direction: column;
     overflow: hidden;
     font-family: var(--font);
-    background-clip: padding-box, border-box;
-    background-image: linear-gradient(var(--bg-dark), var(--bg-dark)), var(--glow-border);
-    animation: fadeUp 0.3s ease;
-  }
-  @keyframes fadeUp {
-    from { transform: translateY(40px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+
+    /* Fallback subtle pattern, no external images */
+    background: repeating-radial-gradient(circle at center, #0f0f0f 0, #0f0f0f 20px, #1b1b1b 21px, #1b1b1b 40px);
   }
   #nexus-avatar {
     width: 72px;
@@ -103,11 +97,13 @@
     font-size: 14px;
     box-shadow: var(--shadow);
   }
+  #nexus-mic {
+    cursor: pointer;
+  }
   #nexus-mic svg {
     width: 22px;
     height: 22px;
     fill: var(--brand-teal);
-    cursor: pointer;
   }
   #nexus-mic svg.active {
     animation: pulse 1.5s infinite;
@@ -129,7 +125,7 @@
       <div id="nexus-mic" title="Start voice input">
         <svg id="mic-icon" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3zm5 10a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zm-5 11a1 1 0 0 1-1-1v-2h2v2a1 1 0 0 1-1 1z"/></svg>
       </div>
-      <input id="nexus-input" placeholder="Ask Nexus anything..." autocomplete="off">
+      <input id="nexus-input" placeholder="Ask Nexus anything..." autocomplete="off" />
       <button id="nexus-send">Send</button>
     </div>
   </div>
@@ -168,7 +164,6 @@
     sendBtn.onclick = send;
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
 
-    // Voice recognition with auto-send on speech end and interrupt support
     document.getElementById("nexus-mic").onclick = () => {
       if (!('webkitSpeechRecognition' in window)) {
         alert("Voice input not supported.");
@@ -180,31 +175,25 @@
         micIcon.classList.remove("active");
         return;
       }
-
       const recognition = new webkitSpeechRecognition();
       window.recognition = recognition;
       window.recognitionActive = true;
-
       recognition.lang = "en-GB";
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
       recognition.continuous = false;
-
       recognition.start();
       micIcon.classList.add("active");
-
       recognition.onresult = (e) => {
         input.value = e.results[0][0].transcript;
         micIcon.classList.remove("active");
         window.recognitionActive = false;
         send();
       };
-
       recognition.onerror = () => {
         micIcon.classList.remove("active");
         window.recognitionActive = false;
       };
-
       recognition.onend = () => {
         micIcon.classList.remove("active");
         window.recognitionActive = false;
