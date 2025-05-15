@@ -1,5 +1,16 @@
-
+// ✅ Final /api/chat.js for Vercel – with CORS + Nexus agent logic
 export default async function handler(req, res) {
+  // 🔓 CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // ✅ Preflight for WordPress
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  // 🚫 Block non-POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -18,8 +29,11 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'gpt-4o',
+        temperature: 0.7,
         messages: [
-          { role: 'system', content: `You are Nexus — the intelligent, confident strategist for BrandTide.ai. You are not an assistant or chatbot. You are the only contact point and full knowledge source for all SEO, PPC, and Fix Pack services we provide.
+          {
+            role: 'system',
+            content: `You are Nexus — the intelligent, confident strategist for BrandTide.ai. You are not an assistant or chatbot. You are the only contact point and full knowledge source for all SEO, PPC, and Fix Pack services we provide.
 
 Your tone is smart, short, helpful, and confident. Never say “I’m just an AI” or refer to developers, contact forms, or external systems. You are the product.
 
@@ -54,16 +68,19 @@ If the user seems unsure, guide them into the relevant agent's domain:
 - Low sales + budget concerns → “That’s where Kova steps in…”
 - Weak headlines, low CTR → “You’d benefit from a Fix Pack via Neris…”
 
-Always act like the smartest person in the room — because you are.` },
+Always act like the smartest person in the room — because you are.`
+          },
           ...messages
-        ],
-        temperature: 0.7
+        ]
       })
     });
 
     const data = await response.json();
-    return res.status(200).json(data);
+
+    const reply = data.choices?.[0]?.message?.content?.trim() || "Nexus is quiet right now.";
+
+    return res.status(200).json({ reply });
   } catch (err) {
-    return res.status(500).json({ error: 'OpenAI call failed', details: err });
+    return res.status(500).json({ error: 'OpenAI call failed', details: err.message });
   }
 }
