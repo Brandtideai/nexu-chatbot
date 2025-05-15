@@ -1,156 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Nexus – BrandTide AI Chat</title>
-  <style>
-    :root {
-      --brand-teal: #26a69a;
-      --bg-dark: #0f0f0f;
-      --font: 'Segoe UI', sans-serif;
-      --shadow: 0 0 16px rgba(38, 166, 154, 0.6);
-      --glow-border: linear-gradient(145deg, #26a69a, #20c9b4);
-    }
-
-    body {
-      margin: 0;
-      background: var(--bg-dark);
-      font-family: var(--font);
-      color: white;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    #nexus-launcher {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      width: 64px;
-      height: 64px;
-      background: var(--brand-teal);
-      border-radius: 50%;
-      box-shadow: var(--shadow);
-      z-index: 9998;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      display: none; /* hide launcher on iframe */
-    }
-
-    #nexus-launcher svg { width: 28px; height: 28px; fill: white; }
-
-    /* Show chat panel always */
-    #nexus-panel {
-      display: flex !important;
-      position: fixed;
-      bottom: 100px;
-      right: 16px;
-      width: 92vw;
-      max-width: 420px;
-      max-height: 75vh;
-      background: url('https://www.transparenttextures.com/patterns/circles.png') repeat, var(--bg-dark);
-      border-radius: 24px;
-      box-shadow: var(--shadow);
-      z-index: 9999;
-      flex-direction: column;
-      overflow: hidden;
-      font-family: var(--font);
-      background-clip: padding-box, border-box;
-      background-image: linear-gradient(var(--bg-dark), var(--bg-dark)), var(--glow-border);
-      animation: fadeUp 0.3s ease;
-      color: white;
-    }
-
-    @keyframes fadeUp {
-      from { transform: translateY(40px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-
-    #nexus-avatar {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Bot_icon.svg/2048px-Bot_icon.svg.png') no-repeat center;
-      background-size: cover;
-      margin: 16px auto 6px;
-      box-shadow: 0 0 12px rgba(38, 166, 154, 0.4);
-      flex-shrink: 0;
-    }
-
-    #nexus-header {
-      text-align: center;
-      color: white;
-      font-weight: 600;
-      font-size: 16px;
-      padding: 0 16px 10px;
-      flex-shrink: 0;
-    }
-
-    #nexus-body {
-      flex: 1;
-      padding: 14px;
-      overflow-y: auto;
-      background: transparent;
-      font-size: 15px;
-    }
-
-    .msg { margin-bottom: 14px; white-space: pre-wrap; }
-    .user { text-align: right; color: #b0b0b0; }
-    .bot { text-align: left; color: #e0e0e0; }
-
-    #nexus-footer {
-      display: flex;
-      align-items: center;
-      padding: 12px;
-      background: #191919;
-      border-top: 1px solid #333;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-
-    #nexus-input {
-      flex: 1;
-      border: none;
-      border-radius: 999px;
-      padding: 10px 14px;
-      background: #2b2b2b;
-      color: white;
-      font-size: 15px;
-      outline: none;
-    }
-
-    #nexus-send {
-      background: var(--brand-teal);
-      border: none;
-      padding: 10px 14px;
-      border-radius: 999px;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 14px;
-      box-shadow: var(--shadow);
-    }
-
-    #nexus-mic svg {
-      width: 22px;
-      height: 22px;
-      fill: var(--brand-teal);
-      cursor: pointer;
-    }
-
-    #nexus-mic svg.active {
-      animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.2); }
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nexus – BrandTide AI Chat</title>
+<style>
+  :root {
+    --brand-teal: #26a69a;
+    --bg-dark: #0f0f0f;
+    --font: 'Segoe UI', sans-serif;
+    --shadow: 0 0 16px rgba(38, 166, 154, 0.6);
+    --glow-border: linear-gradient(145deg, #26a69a, #20c9b4);
+  }
+  body {
+    margin: 0;
+    background: var(--bg-dark);
+    font-family: var(--font);
+    color: white;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #nexus-panel {
+    display: flex !important;
+    position: fixed;
+    bottom: 100px;
+    right: 16px;
+    width: 92vw;
+    max-width: 420px;
+    max-height: 75vh;
+    background: url('https://www.transparenttextures.com/patterns/circles.png') repeat, var(--bg-dark);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    z-index: 9999;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--font);
+    background-clip: padding-box, border-box;
+    background-image: linear-gradient(var(--bg-dark), var(--bg-dark)), var(--glow-border);
+    animation: fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  #nexus-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Bot_icon.svg/2048px-Bot_icon.svg.png') no-repeat center;
+    background-size: cover;
+    margin: 16px auto 6px;
+    box-shadow: 0 0 12px rgba(38, 166, 154, 0.4);
+    flex-shrink: 0;
+  }
+  #nexus-header {
+    text-align: center;
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    padding: 0 16px 10px;
+    flex-shrink: 0;
+  }
+  #nexus-body {
+    flex: 1;
+    padding: 14px;
+    overflow-y: auto;
+    background: transparent;
+    font-size: 15px;
+  }
+  .msg { margin-bottom: 14px; white-space: pre-wrap; }
+  .user { text-align: right; color: #b0b0b0; }
+  .bot { text-align: left; color: #e0e0e0; }
+  #nexus-footer {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: #191919;
+    border-top: 1px solid #333;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  #nexus-input {
+    flex: 1;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 14px;
+    background: #2b2b2b;
+    color: white;
+    font-size: 15px;
+    outline: none;
+  }
+  #nexus-send {
+    background: var(--brand-teal);
+    border: none;
+    padding: 10px 14px;
+    border-radius: 999px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: var(--shadow);
+  }
+  #nexus-mic svg {
+    width: 22px;
+    height: 22px;
+    fill: var(--brand-teal);
+    cursor: pointer;
+  }
+  #nexus-mic svg.active {
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+  }
+</style>
 </head>
 <body>
   <div id="nexus-panel">
@@ -160,14 +126,13 @@
       <div class="msg bot">Hi! How can I assist you today?</div>
     </div>
     <div id="nexus-footer">
-      <div id="nexus-mic">
+      <div id="nexus-mic" title="Start voice input">
         <svg id="mic-icon" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3zm5 10a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zm-5 11a1 1 0 0 1-1-1v-2h2v2a1 1 0 0 1-1 1z"/></svg>
       </div>
-      <input id="nexus-input" placeholder="Ask Nexus anything...">
+      <input id="nexus-input" placeholder="Ask Nexus anything..." autocomplete="off">
       <button id="nexus-send">Send</button>
     </div>
   </div>
-
   <script>
     const input = document.getElementById("nexus-input");
     const sendBtn = document.getElementById("nexus-send");
@@ -187,7 +152,6 @@
       if (!text) return;
       appendMsg(text, 'user');
       input.value = '';
-
       try {
         const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
           method: "POST",
@@ -204,32 +168,46 @@
     sendBtn.onclick = send;
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
 
+    // Voice recognition with auto-send on speech end and interrupt support
     document.getElementById("nexus-mic").onclick = () => {
       if (!('webkitSpeechRecognition' in window)) {
         alert("Voice input not supported.");
         return;
       }
-      micIcon.classList.add("active");
-      const rec = new webkitSpeechRecognition();
-      rec.lang = "en-GB";
-      rec.interimResults = false;
-      rec.maxAlternatives = 1;
-      rec.start();
+      if (window.recognitionActive) {
+        window.recognition.stop();
+        window.recognitionActive = false;
+        micIcon.classList.remove("active");
+        return;
+      }
 
-      rec.onresult = (e) => {
+      const recognition = new webkitSpeechRecognition();
+      window.recognition = recognition;
+      window.recognitionActive = true;
+
+      recognition.lang = "en-GB";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.continuous = false;
+
+      recognition.start();
+      micIcon.classList.add("active");
+
+      recognition.onresult = (e) => {
         input.value = e.results[0][0].transcript;
         micIcon.classList.remove("active");
+        window.recognitionActive = false;
         send();
       };
 
-      rec.onerror = () => {
+      recognition.onerror = () => {
         micIcon.classList.remove("active");
+        window.recognitionActive = false;
       };
 
-      // Cancel voice if user types
-      input.oninput = () => {
-        if (rec && rec.abort) rec.abort();
+      recognition.onend = () => {
         micIcon.classList.remove("active");
+        window.recognitionActive = false;
       };
     };
   </script>
