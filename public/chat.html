@@ -36,15 +36,17 @@
     overflow: hidden;
     font-family: var(--font);
 
-    /* Fallback subtle pattern, no external images */
-    background: repeating-radial-gradient(circle at center, #0f0f0f 0, #0f0f0f 20px, #1b1b1b 21px, #1b1b1b 40px);
+    /* Background: repeating subtle circles + teal glow border */
+    background: url('https://www.transparenttextures.com/patterns/circles.png') repeat, var(--bg-dark);
+    background-clip: padding-box, border-box;
+    background-image: linear-gradient(var(--bg-dark), var(--bg-dark)), linear-gradient(145deg, #26a69a, #20c9b4);
   }
   #nexus-avatar {
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Bot_icon.svg/2048px-Bot_icon.svg.png') no-repeat center;
-    background-size: cover;
+    background: url('https://cdn-icons-png.flaticon.com/512/4712/4712027.png') no-repeat center;
+    background-size: contain;
     margin: 16px auto 6px;
     box-shadow: 0 0 12px rgba(38, 166, 154, 0.4);
     flex-shrink: 0;
