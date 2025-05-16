@@ -41,6 +41,20 @@
     background-color: #303030;
     border: 2px solid var(--brand-teal);
   }
+  #nexus-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 10000;
+  }
+  #nexus-close svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--brand-teal);
+  }
   #nexus-avatar {
     width: 50px;
     height: 50px;
@@ -173,6 +187,9 @@
 </head>
 <body>
   <div id="nexus-panel">
+    <button id="nexus-close" onclick="window.parent.postMessage('closeChat', '*')">
+      <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
     <div id="nexus-avatar"></div>
     <div id="nexus-header">Nexus – BrandTide AI</div>
     <div id="nexus-body">
@@ -214,7 +231,7 @@
         const data = await res.json();
         appendMsg(data.reply || "No response", "bot");
       } catch {
-        appendMsg("Connection error.", "bot");
+        appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
       }
     }
 
@@ -222,6 +239,11 @@
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
 
     document.getElementById("nexus-mic").onclick = async () => {
+      if (!window.location.protocol.startsWith('https')) {
+        appendMsg("Voice input requires HTTPS. Please access this site via a secure connection.", "bot");
+        return;
+      }
+
       if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
         appendMsg("Voice input is not supported on this device.", "bot");
         return;
@@ -248,7 +270,7 @@
         recognition.start();
         micIcon.classList.add("active");
       } catch (err) {
-        appendMsg("Microphone access denied. Please enable permissions in your browser settings.", "bot");
+        appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.", "bot");
         window.recognitionActive = false;
         micIcon.classList.remove("active");
         return;
@@ -270,7 +292,7 @@
         } else if (e.error === "audio-capture") {
           errorMsg += "No microphone detected. Please ensure a microphone is connected.";
         } else if (e.error === "not-allowed") {
-          errorMsg += "Microphone access denied. Please enable permissions in your browser settings.";
+          errorMsg += "Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.";
         } else {
           errorMsg += e.error;
         }
