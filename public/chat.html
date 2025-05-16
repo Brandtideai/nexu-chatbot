@@ -198,16 +198,17 @@
       height: 24px;
     }
   }
-  @media (min-width: 768px) {
+  @media (min-width: 768px) and (max-width: 1024px) {
     #nexus-panel {
-      bottom: 100px;
-      right: 16px;
+      width: 70vw;
+      max-width: 400px;
+      max-height: 600px;
+    }
+  }
+  @media (min-width: 1025px) {
+    #nexus-panel {
       width: 340px;
-      height: auto;
       max-height: 520px;
-      border-radius: 20px;
-      box-shadow: var(--shadow);
-      border: 2px solid var(--brand-teal);
     }
   }
 </style>
@@ -247,7 +248,7 @@
     function closeChatWindow() {
       try {
         window.parent.postMessage('closeChat', '*');
-        console.log('Close message sent');
+        console.log('Close message sent at', new Date().toISOString());
       } catch (err) {
         console.error('Failed to close chat window:', err);
         appendMsg("Error closing chat window. Please try refreshing the page.", "bot");
@@ -278,6 +279,7 @@
     document.getElementById("nexus-mic").onclick = async () => {
       if (!window.location.protocol.startsWith('https')) {
         appendMsg("Voice input requires HTTPS. Please access this site via a secure connection.", "bot");
+        appendMsg("Alternatively, click here to open in a new tab: <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>Open Chat</a>", "bot");
         return;
       }
 
@@ -306,6 +308,7 @@
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
         if (permissionStatus.state === 'denied') {
           appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.", "bot");
+          appendMsg("Alternatively, click here to open in a new tab: <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>Open Chat</a>", "bot");
           return;
         }
 
@@ -314,6 +317,7 @@
         micIcon.classList.add("active");
       } catch (err) {
         appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone. Error: " + err.message, "bot");
+        appendMsg("Alternatively, click here to open in a new tab: <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>Open Chat</a>", "bot");
         window.recognitionActive = false;
         micIcon.classList.remove("active");
         return;
@@ -340,6 +344,7 @@
           errorMsg += e.error;
         }
         appendMsg(errorMsg, "bot");
+        appendMsg("Alternatively, click here to open in a new tab: <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>Open Chat</a>", "bot");
       };
 
       recognition.onend = () => {
