@@ -24,14 +24,12 @@
   #nexus-panel {
     display: flex;
     position: fixed;
-    bottom: 80px;
-    right: 10px;
-    width: 85vw;
-    max-width: 320px;
-    height: 80vh;
-    max-height: 500px;
-    border-radius: 20px;
-    box-shadow: var(--shadow);
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
     z-index: 9999;
     flex-direction: column;
     overflow: hidden;
@@ -39,7 +37,7 @@
     background: url('https://brandtideai.com/wp-content/uploads/2025/05/ChatGPT-Image-May-16-2025-01_49_41-AM-2.png') no-repeat center;
     background-size: cover;
     background-color: #303030;
-    border: 2px solid var(--brand-teal);
+    border: none;
   }
   #nexus-close {
     position: absolute;
@@ -143,10 +141,16 @@
   }
   @media (min-width: 768px) {
     #nexus-panel {
+      top: auto;
+      left: auto;
       bottom: 100px;
       right: 16px;
       width: 340px;
+      height: auto;
       max-height: 520px;
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      border: 2px solid var(--brand-teal);
     }
     #nexus-avatar {
       width: 60px;
@@ -187,7 +191,7 @@
 </head>
 <body>
   <div id="nexus-panel">
-    <button id="nexus-close" onclick="window.parent.postMessage('closeChat', '*')">
+    <button id="nexus-close" onclick="closeChatWindow()">
       <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
     </button>
     <div id="nexus-avatar"></div>
@@ -215,6 +219,14 @@
       div.textContent = content;
       body.appendChild(div);
       body.scrollTop = body.scrollHeight;
+    }
+
+    function closeChatWindow() {
+      try {
+        window.parent.postMessage('closeChat', '*');
+      } catch (err) {
+        console.error('Failed to close chat window:', err);
+      }
     }
 
     async function send() {
@@ -266,6 +278,12 @@
       recognition.continuous = false;
 
       try {
+        const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+        if (permissionStatus.state === 'denied') {
+          appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.", "bot");
+          return;
+        }
+
         await navigator.mediaDevices.getUserMedia({ audio: true });
         recognition.start();
         micIcon.classList.add("active");
