@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Nexus – BrandTide AI Chat</title>
 <style>
   :root {
@@ -22,89 +22,102 @@
     align-items: center;
   }
   #nexus-panel {
-    display: flex !important;
+    display: flex;
     position: fixed;
-    bottom: 100px;
-    right: 16px;
-    width: 92vw;
-    max-width: 420px;
-    max-height: 75vh;
-    border-radius: 24px;
+    bottom: 80px;
+    right: 10px;
+    width: 85vw;
+    max-width: 320px;
+    height: 80vh;
+    max-height: 500px;
+    border-radius: 20px;
     box-shadow: var(--shadow);
     z-index: 9999;
     flex-direction: column;
     overflow: hidden;
     font-family: var(--font);
-
-    /* Background: repeating subtle circles + teal glow border */
-    background: url('https://www.transparenttextures.com/patterns/circles.png') repeat, var(--bg-dark);
-    background-clip: padding-box, border-box;
-    background-image: linear-gradient(var(--bg-dark), var(--bg-dark)), linear-gradient(145deg, #26a69a, #20c9b4);
+    background: url('https://brandtideai.com/wp-content/uploads/2025/05/ChatGPT-Image-May-16-2025-01_49_41-AM-2.png') no-repeat center;
+    background-size: cover;
+    background-color: #303030;
+    border: 2px solid var(--brand-teal);
   }
   #nexus-avatar {
-    width: 72px;
-    height: 72px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
-    background: url('https://cdn-icons-png.flaticon.com/512/4712/4712027.png') no-repeat center;
-    background-size: contain;
-    margin: 16px auto 6px;
-    box-shadow: 0 0 12px rgba(38, 166, 154, 0.4);
+    background: url('https://brandtideai.com/wp-content/uploads/2025/05/ChatGPT-Image-May-16-2025-01_50_12-AM.png') no-repeat center;
+    background-size: cover;
+    margin: 10px auto 3px;
+    box-shadow: 0 0 8px rgba(38, 166, 154, 0.4);
     flex-shrink: 0;
   }
   #nexus-header {
     text-align: center;
     color: white;
     font-weight: 600;
-    font-size: 16px;
-    padding: 0 16px 10px;
+    font-size: 13px;
+    padding: 0 10px 6px;
     flex-shrink: 0;
   }
   #nexus-body {
     flex: 1;
-    padding: 14px;
+    padding: 8px;
     overflow-y: auto;
     background: transparent;
-    font-size: 15px;
+    font-size: 13px;
   }
-  .msg { margin-bottom: 14px; white-space: pre-wrap; }
-  .user { text-align: right; color: #b0b0b0; }
-  .bot { text-align: left; color: #e0e0e0; }
+  .msg { 
+    margin-bottom: 8px; 
+    white-space: pre-wrap; 
+    padding: 5px 8px;
+    border-radius: 8px;
+  }
+  .user { 
+    text-align: right; 
+    color: #b0b0b0; 
+    background: #2b2b2b;
+  }
+  .bot { 
+    text-align: left; 
+    color: #e0e0e0; 
+    background: #1a3c34;
+  }
   #nexus-footer {
     display: flex;
     align-items: center;
-    padding: 12px;
+    padding: 8px;
     background: #191919;
     border-top: 1px solid #333;
-    gap: 10px;
+    gap: 6px;
     flex-shrink: 0;
   }
   #nexus-input {
     flex: 1;
     border: none;
     border-radius: 999px;
-    padding: 10px 14px;
+    padding: 6px 10px;
     background: #2b2b2b;
     color: white;
-    font-size: 15px;
+    font-size: 13px;
     outline: none;
   }
   #nexus-send {
     background: var(--brand-teal);
     border: none;
-    padding: 10px 14px;
+    padding: 6px 10px;
     border-radius: 999px;
     color: white;
     font-weight: bold;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
     box-shadow: var(--shadow);
   }
   #nexus-mic {
     cursor: pointer;
   }
   #nexus-mic svg {
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
     fill: var(--brand-teal);
   }
   #nexus-mic svg.active {
@@ -113,6 +126,48 @@
   @keyframes pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.2); }
+  }
+  @media (min-width: 768px) {
+    #nexus-panel {
+      bottom: 100px;
+      right: 16px;
+      width: 340px;
+      max-height: 520px;
+    }
+    #nexus-avatar {
+      width: 60px;
+      height: 60px;
+      margin: 12px auto 4px;
+    }
+    #nexus-header {
+      font-size: 14px;
+      padding: 0 12px 8px;
+    }
+    #nexus-body {
+      padding: 10px;
+      font-size: 14px;
+    }
+    .msg {
+      margin-bottom: 10px;
+      padding: 6px 10px;
+      border-radius: 10px;
+    }
+    #nexus-footer {
+      padding: 10px;
+      gap: 8px;
+    }
+    #nexus-input {
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    #nexus-send {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+    #nexus-mic svg {
+      width: 20px;
+      height: 20px;
+    }
   }
 </style>
 </head>
@@ -167,17 +222,18 @@
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
 
     document.getElementById("nexus-mic").onclick = () => {
-      if (!('webkitSpeechRecognition' in window)) {
-        alert("Voice input not supported.");
+      if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+        appendMsg("Voice input not supported on this device.", "bot");
         return;
       }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (window.recognitionActive) {
         window.recognition.stop();
         window.recognitionActive = false;
         micIcon.classList.remove("active");
         return;
       }
-      const recognition = new webkitSpeechRecognition();
+      const recognition = new SpeechRecognition();
       window.recognition = recognition;
       window.recognitionActive = true;
       recognition.lang = "en-GB";
@@ -192,9 +248,10 @@
         window.recognitionActive = false;
         send();
       };
-      recognition.onerror = () => {
+      recognition.onerror = (e) => {
         micIcon.classList.remove("active");
         window.recognitionActive = false;
+        appendMsg(`Voice input error: ${e.error}`, "bot");
       };
       recognition.onend = () => {
         micIcon.classList.remove("active");
