@@ -221,11 +221,12 @@
     sendBtn.onclick = send;
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
 
-    document.getElementById("nexus-mic").onclick = () => {
+    document.getElementById("nexus-mic").onclick = async () => {
       if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-        appendMsg("Voice input not supported on this device.", "bot");
+        appendMsg("Voice input is not supported on this device.", "bot");
         return;
       }
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (window.recognitionActive) {
         window.recognition.stop();
@@ -233,6 +234,7 @@
         micIcon.classList.remove("active");
         return;
       }
+
       const recognition = new SpeechRecognition();
       window.recognition = recognition;
       window.recognitionActive = true;
@@ -240,19 +242,41 @@
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
       recognition.continuous = false;
-      recognition.start();
-      micIcon.classList.add("active");
+
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        recognition.start();
+        micIcon.classList.add("active");
+      } catch (err) {
+        appendMsg("Microphone access denied. Please enable permissions in your browser settings.", "bot");
+        window.recognitionActive = false;
+        micIcon.classList.remove("active");
+        return;
+      }
+
       recognition.onresult = (e) => {
         input.value = e.results[0][0].transcript;
         micIcon.classList.remove("active");
         window.recognitionActive = false;
         send();
       };
+
       recognition.onerror = (e) => {
         micIcon.classList.remove("active");
         window.recognitionActive = false;
-        appendMsg(`Voice input error: ${e.error}`, "bot");
+        let errorMsg = "Voice input error: ";
+        if (e.error === "no-speech") {
+          errorMsg += "No speech detected. Please try again.";
+        } else if (e.error === "audio-capture") {
+          errorMsg += "No microphone detected. Please ensure a microphone is connected.";
+        } else if (e.error === "not-allowed") {
+          errorMsg += "Microphone access denied. Please enable permissions in your browser settings.";
+        } else {
+          errorMsg += e.error;
+        }
+        appendMsg(errorMsg, "bot");
       };
+
       recognition.onend = () => {
         micIcon.classList.remove("active");
         window.recognitionActive = false;
