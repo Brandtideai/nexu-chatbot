@@ -240,7 +240,7 @@
     function appendMsg(content, cls) {
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
-      div.textContent = content;
+      div.innerHTML = content;
       body.appendChild(div);
       body.scrollTop = body.scrollHeight;
     }
@@ -279,7 +279,7 @@
     document.getElementById("nexus-mic").onclick = async () => {
       if (!window.location.protocol.startsWith('https')) {
         appendMsg("Voice input requires HTTPS. Please access this site via a secure connection.", "bot");
-        appendMsg("Alternatively, click here to open in a new tab: <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>Open Chat</a>", "bot");
+        appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
         return;
       }
 
@@ -308,7 +308,7 @@
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
         if (permissionStatus.state === 'denied') {
           appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.", "bot");
-          appendMsg("Alternatively, click here to open in a new tab: <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>Open Chat</a>", "bot");
+          appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
           return;
         }
 
@@ -317,7 +317,7 @@
         micIcon.classList.add("active");
       } catch (err) {
         appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone. Error: " + err.message, "bot");
-        appendMsg("Alternatively, click here to open in a new tab: <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>Open Chat</a>", "bot");
+        appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
         window.recognitionActive = false;
         micIcon.classList.remove("active");
         return;
@@ -344,7 +344,7 @@
           errorMsg += e.error;
         }
         appendMsg(errorMsg, "bot");
-        appendMsg("Alternatively, click here to open in a new tab: <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>Open Chat</a>", "bot");
+        appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
       };
 
       recognition.onend = () => {
