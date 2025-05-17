@@ -276,7 +276,7 @@
     let recognition = null;
     let voicesLoaded = false;
     let lastSpeechTime = 0;
-    const DEBOUNCE_DELAY = 1000; // 1 second debounce to prevent duplicates
+    const DEBOUNCE_DELAY = 1000;
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
@@ -325,7 +325,7 @@
         !voice.name.includes('Daniel')
       ) || voices.find(voice => voice.lang === 'en-GB') || voices[0];
       if (femaleBritishVoice) {
-        console.log('Selected voice:', femaleBritishVoice.name);
+        console.log('Selected voice:', femaleBritishVoice.name, femaleBritishVoice.lang);
       } else {
         console.warn('No suitable voice found, using first available voice');
       }
@@ -351,8 +351,18 @@
           testUtterance.rate = 1.15;
           testUtterance.onstart = () => console.log('Test speech synthesis started');
           testUtterance.onend = () => console.log('Test speech synthesis ended');
-          testUtterance.onerror = (e) => console.error('Test speech synthesis error:', e.error);
-          speechSynthesis.speak(testUtterance);
+          testUtterance.onerror = (e) => {
+            console.error('Test speech synthesis error:', e.error);
+            appendMsg("Test speech synthesis failed: " + e.error, "bot");
+          };
+          try {
+            speechSynthesis.speak(testUtterance);
+          } catch (err) {
+            console.error('Speech synthesis speak error on test:', err);
+            appendMsg("Speech synthesis failed on test: " + err.message, "bot");
+          }
+        } else {
+          appendMsg("No voice available for speech synthesis on startup.", "bot");
         }
       }
     });
@@ -432,12 +442,18 @@
             console.log('Resumed speech synthesis');
           }
 
-          speechSynthesis.speak(utterance);
+          try {
+            speechSynthesis.speak(utterance);
+            console.log('Speech synthesis initiated');
+          } catch (err) {
+            console.error('Speech synthesis speak error:', err);
+            appendMsg("Speech synthesis failed: " + err.message, "bot");
+          }
         } catch {
           removeThinkingAnimation();
           appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
         }
-      }, 1250); // 1.25-second delay
+      }, 2000); // 2-second delay
     }
 
     sendBtn.onclick = send;
