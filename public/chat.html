@@ -326,53 +326,51 @@
           removeThinkingAnimation();
           const reply = data.reply || "No response";
           appendMsg(reply, "bot");
-          // Text-to-speech only if mic is active
-          if (isMicActive) {
-            const utterance = new SpeechSynthesisUtterance(reply);
-            const voices = speechSynthesis.getVoices();
-            const femaleBritishVoice = voices.find(voice => 
-              voice.lang === 'en-GB' && 
-              (voice.name.includes('Female') || 
-               voice.name.includes('Samantha') || 
-               voice.name.includes('Kate') || 
-               voice.name.includes('Serena')) && 
-              !voice.name.includes('Male') && 
-              !voice.name.includes('Daniel')
-            ) || voices.find(voice => voice.lang === 'en-GB');
-            if (femaleBritishVoice) {
-              utterance.voice = femaleBritishVoice;
-              console.log('Selected voice:', femaleBritishVoice.name);
-            } else {
-              console.warn('No female British voice found, using default en-GB voice');
-            }
-            utterance.lang = 'en-GB';
-            utterance.rate = 1.15; // Adjusted to a more natural conversational speed
-
-            // Pause SpeechRecognition during speech synthesis to prevent loop
-            if (recognition && isMicActive) {
-              recognition.stop();
-              console.log('SpeechRecognition paused during speech synthesis');
-            }
-
-            utterance.onstart = () => {
-              console.log('Speech synthesis started');
-            };
-
-            utterance.onend = () => {
-              console.log('Speech synthesis ended');
-              if (isMicActive && recognition) {
-                recognition.start();
-                console.log('SpeechRecognition resumed after speech synthesis');
-              }
-            };
-
-            speechSynthesis.speak(utterance);
+          // Text-to-speech for every bot response
+          const utterance = new SpeechSynthesisUtterance(reply);
+          const voices = speechSynthesis.getVoices();
+          const femaleBritishVoice = voices.find(voice => 
+            voice.lang === 'en-GB' && 
+            (voice.name.includes('Female') || 
+             voice.name.includes('Samantha') || 
+             voice.name.includes('Kate') || 
+             voice.name.includes('Serena')) && 
+            !voice.name.includes('Male') && 
+            !voice.name.includes('Daniel')
+          ) || voices.find(voice => voice.lang === 'en-GB');
+          if (femaleBritishVoice) {
+            utterance.voice = femaleBritishVoice;
+            console.log('Selected voice:', femaleBritishVoice.name);
+          } else {
+            console.warn('No female British voice found, using default en-GB voice');
           }
+          utterance.lang = 'en-GB';
+          utterance.rate = 1.15; // Adjusted to a more natural conversational speed
+
+          // Pause SpeechRecognition during speech synthesis to prevent loop
+          if (recognition && isMicActive) {
+            recognition.stop();
+            console.log('SpeechRecognition paused during speech synthesis');
+          }
+
+          utterance.onstart = () => {
+            console.log('Speech synthesis started');
+          };
+
+          utterance.onend = () => {
+            console.log('Speech synthesis ended');
+            if (isMicActive && recognition) {
+              recognition.start();
+              console.log('SpeechRecognition resumed after speech synthesis');
+            }
+          };
+
+          speechSynthesis.speak(utterance);
         } catch {
           removeThinkingAnimation();
           appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
         }
-      }, 2000); // 2-second delay
+      }, 1250); // 1.25-second delay
     }
 
     // Ensure voices are loaded before use
