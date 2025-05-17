@@ -274,6 +274,7 @@
     const micIcon = document.getElementById("nexus-mic");
     let isMicActive = false;
     let recognition = null;
+    let voicesLoaded = false;
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
@@ -309,13 +310,43 @@
       }
     }
 
+    // Ensure voices are loaded before attempting speech synthesis
+    function getFemaleBritishVoice() {
+      const voices = speechSynthesis.getVoices();
+      const femaleBritishVoice = voices.find(voice => 
+        voice.lang === 'en-GB' && 
+        (voice.name.includes('Female') || 
+         voice.name.includes('Samantha') || 
+         voice.name.includes('Kate') || 
+         voice.name.includes('Serena')) && 
+        !voice.name.includes('Male') && 
+        !voice.name.includes('Daniel')
+      ) || voices.find(voice => voice.lang === 'en-GB');
+      if (femaleBritishVoice) {
+        console.log('Selected voice:', femaleBritishVoice.name);
+      } else {
+        console.warn('No female British voice found, using default en-GB voice');
+      }
+      return femaleBritishVoice;
+    }
+
+    speechSynthesis.onvoiceschanged = () => {
+      voicesLoaded = true;
+      console.log('Voices loaded:', speechSynthesis.getVoices().map(v => v.name));
+    };
+
+    // Force voice load on page load
+    speechSynthesis.getVoices();
+
     async function send() {
       const text = input.value.trim();
       if (!text) return;
       appendMsg(text, 'user');
       input.value = '';
       showThinkingAnimation();
+      console.log('Starting wait timer at', new Date().toISOString());
       setTimeout(async () => {
+        console.log('Wait timer ended at', new Date().toISOString());
         try {
           const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
             method: "POST",
@@ -327,25 +358,29 @@
           const reply = data.reply || "No response";
           appendMsg(reply, "bot");
           // Text-to-speech for every bot response
+          if (!voicesLoaded) {
+            console.warn('Voices not loaded yet, waiting for voiceschanged event');
+            await new Promise(resolve => {
+              speechSynthesis.onvoiceschanged = () => {
+                voicesLoaded = true;
+                console.log('Voices loaded during wait:', speechSynthesis.getVoices().map(v => v.name));
+                resolve();
+              };
+              // Fallback timeout after 2 seconds
+              setTimeout(() => resolve(), 2000);
+            });
+          }
           const utterance = new SpeechSynthesisUtterance(reply);
-          const voices = speechSynthesis.getVoices();
-          const femaleBritishVoice = voices.find(voice => 
-            voice.lang === 'en-GB' && 
-            (voice.name.includes('Female') || 
-             voice.name.includes('Samantha') || 
-             voice.name.includes('Kate') || 
-             voice.name.includes('Serena')) && 
-            !voice.name.includes('Male') && 
-            !voice.name.includes('Daniel')
-          ) || voices.find(voice => voice.lang === 'en-GB');
+          const femaleBritishVoice = getFemaleBritishVoice();
           if (femaleBritishVoice) {
             utterance.voice = femaleBritishVoice;
-            console.log('Selected voice:', femaleBritishVoice.name);
           } else {
-            console.warn('No female British voice found, using default en-GB voice');
+            console.error('No en-GB voice available');
+            appendMsg("Speech synthesis failed: No suitable voice available.", "bot");
+            return;
           }
           utterance.lang = 'en-GB';
-          utterance.rate = 1.15; // Adjusted to a more natural conversational speed
+          utterance.rate = 1.15;
 
           // Pause SpeechRecognition during speech synthesis to prevent loop
           if (recognition && isMicActive) {
@@ -365,6 +400,15 @@
             }
           };
 
+          utterance.onerror = (e) => {
+            console.error('Speech synthesis error:', e.error);
+            appendMsg("Speech synthesis failed: " + e.error, "bot");
+            if (isMicActive && recognition) {
+              recognition.start();
+              console.log('SpeechRecognition resumed after speech synthesis error');
+            }
+          };
+
           speechSynthesis.speak(utterance);
         } catch {
           removeThinkingAnimation();
@@ -372,11 +416,6 @@
         }
       }, 1250); // 1.25-second delay
     }
-
-    // Ensure voices are loaded before use
-    speechSynthesis.onvoiceschanged = () => {
-      console.log('Voices loaded:', speechSynthesis.getVoices().map(v => v.name));
-    };
 
     sendBtn.onclick = send;
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
