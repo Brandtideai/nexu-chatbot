@@ -185,6 +185,19 @@
     fill: #ff5555;
     animation: pulse 1.5s infinite;
   }
+  #speak-test {
+    position: absolute;
+    top: 40px;
+    right: 10px;
+    background: var(--brand-teal);
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    z-index: 10000;
+  }
   @keyframes pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.2); }
@@ -210,6 +223,11 @@
     #nexus-close svg {
       width: 30px;
       height: 30px;
+    }
+    #speak-test {
+      top: 50px;
+      right: 15px;
+      font-size: 14px;
     }
     #nexus-avatar {
       width: 70px;
@@ -273,6 +291,7 @@
     <button id="nexus-close" onclick="closeChatWindow()">
       <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
     </button>
+    <button id="speak-test" onclick="speakTest()">Speak Test</button>
     <div id="nexus-avatar"></div>
     <div id="nexus-header">Nexus – BrandTide AI</div>
     <div id="nexus-body">
@@ -374,6 +393,19 @@
       console.log('Test beep played');
     }
 
+    // Unlock audio on user interaction
+    window.addEventListener("click", () => {
+      if (audioContext && audioContext.state === "suspended") {
+        audioContext.resume().then(() => {
+          console.log("Audio resumed after user click");
+        });
+      }
+      if (speechSynthesis.paused) {
+        speechSynthesis.resume();
+        console.log("Speech synthesis resumed after user click");
+      }
+    }, { once: true });
+
     // Voice selection and speech synthesis setup
     function getFemaleBritishVoice() {
       const voices = speechSynthesis.getVoices();
@@ -421,6 +453,16 @@
       appendMsg("Speech output is not supported by your browser. Please try a different browser like Chrome or Firefox.", "bot");
     }
 
+    function speakTest() {
+      const testUtterance = new SpeechSynthesisUtterance("Testing speech synthesis.");
+      testUtterance.voice = getFemaleBritishVoice();
+      testUtterance.lang = "en-GB";
+      testUtterance.rate = 0.9;
+      speechSynthesis.cancel(); // Clear queue
+      speechSynthesis.speak(testUtterance);
+      console.log('Speak test initiated');
+    }
+
     function speakMessage(messageId) {
       console.log('speakMessage called with messageId:', messageId);
       initAudioContext();
@@ -448,6 +490,7 @@
           if (!voicesLoaded) {
             console.error('Voices failed to load after timeout');
             appendMsg("Speech synthesis failed: Voices not loaded. Please try again or use a different browser.", "bot");
+            playTestBeep();
           }
         }, 2000);
       } else {
@@ -457,6 +500,7 @@
 
     function proceedWithSpeech(message) {
       let speechStarted = false;
+      let utteranceStarted = false;
       const utterance = new SpeechSynthesisUtterance(message);
       const femaleBritishVoice = getFemaleBritishVoice();
       if (femaleBritishVoice) {
@@ -476,6 +520,7 @@
       }
 
       utterance.onstart = () => {
+        utteranceStarted = true;
         speechStarted = true;
         console.log('Speech synthesis started');
       };
@@ -503,14 +548,16 @@
       }
 
       try {
+        speechSynthesis.cancel(); // Clear queue
         speechSynthesis.speak(utterance);
         console.log('Speech synthesis initiated');
         setTimeout(() => {
-          if (!speechStarted) {
-            console.error('Speech synthesis did not start within 5 seconds');
-            appendMsg("Speech synthesis failed: Did not start within 5 seconds. On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions. Test audio with a simple sound: <a href='javascript:playTestBeep()'>Click here</a>.", "bot");
+          if (!utteranceStarted) {
+            console.error('Speech synthesis never started – fallback triggered');
+            appendMsg("Speech synthesis didn’t start. Try tapping the screen first, unmute, or reload the page. Test audio with a simple sound: <a href='javascript:playTestBeep()'>Click here</a>.", "bot");
+            playTestBeep();
           }
-        }, 5000);
+        }, 1500);
       } catch (err) {
         console.error('Speech synthesis speak error:', err);
         appendMsg("Speech synthesis failed: " + err.message + ". Please try a different browser or device.", "bot");
