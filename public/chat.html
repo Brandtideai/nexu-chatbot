@@ -185,19 +185,6 @@
     fill: #ff5555;
     animation: pulse 1.5s infinite;
   }
-  #speak-test {
-    position: absolute;
-    top: 40px;
-    right: 10px;
-    background: var(--brand-teal);
-    border: none;
-    padding: 5px 10px;
-    border-radius: 5px;
-    color: white;
-    cursor: pointer;
-    font-size: 12px;
-    z-index: 10000;
-  }
   @keyframes pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.2); }
@@ -223,11 +210,6 @@
     #nexus-close svg {
       width: 30px;
       height: 30px;
-    }
-    #speak-test {
-      top: 50px;
-      right: 15px;
-      font-size: 14px;
     }
     #nexus-avatar {
       width: 70px;
@@ -291,7 +273,6 @@
     <button id="nexus-close" onclick="closeChatWindow()">
       <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
     </button>
-    <button id="speak-test" onclick="speakTest()">Speak Test</button>
     <div id="nexus-avatar"></div>
     <div id="nexus-header">Nexus – BrandTide AI</div>
     <div id="nexus-body">
@@ -314,14 +295,13 @@
     let recognition = null;
     let voicesLoaded = false;
     let lastSpeechTime = 0;
-    let lastMessageId = 0; // Track the latest message ID for auto-speak
-    const DEBOUNCE_DELAY = 1000;
     let messageCounter = 0;
     let audioContext = null;
     let micErrorCount = 0;
     const MAX_MIC_ERRORS = 3;
+    const DEBOUNCE_DELAY = 1000;
 
-    function appendMsg(content, cls, fromMic = false) {
+    function appendMsg(content, cls) {
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
       if (cls === 'bot') {
@@ -338,19 +318,12 @@
           console.log('Trying to speak message:', messageCounter);
           speakMessage(messageCounter);
         });
-        lastMessageId = messageCounter; // Update the latest message ID
-        if (fromMic) {
-          // Auto-speak the bot's reply after mic input
-          setTimeout(() => {
-            console.log('Auto-speaking message after mic input:', lastMessageId);
-            speakMessage(lastMessageId);
-          }, 500); // Small delay to ensure DOM is updated
-        }
       } else {
         div.innerHTML = content;
       }
       body.appendChild(div);
       div.scrollIntoView({ behavior: "smooth" });
+      return messageCounter; // Return the message ID for auto-speak
     }
 
     function showThinkingAnimation() {
@@ -466,16 +439,6 @@
       appendMsg("Speech output is not supported by your browser. Please try a different browser like Chrome or Firefox.", "bot");
     }
 
-    function speakTest() {
-      const testUtterance = new SpeechSynthesisUtterance("Testing speech synthesis.");
-      testUtterance.voice = null; // Use default system voice
-      testUtterance.lang = "en-GB";
-      testUtterance.rate = 1.1; // Adjusted for slightly faster speech
-      speechSynthesis.cancel(); // Clear queue
-      speechSynthesis.speak(testUtterance);
-      console.log('Speak test initiated');
-    }
-
     function speakMessage(messageId) {
       console.log('speakMessage called with messageId:', messageId);
       initAudioContext();
@@ -497,7 +460,7 @@
 
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-GB';
-      utter.rate = 1.1; // Adjusted for slightly faster speech
+      utter.rate = 1.1;
 
       const voice = getFemaleBritishVoice();
       if (voice) utter.voice = voice;
@@ -530,7 +493,11 @@
             const data = await res.json();
             removeThinkingAnimation();
             const reply = data.reply || "No response";
-            appendMsg(reply, "bot", fromMic);
+            const messageId = appendMsg(reply, "bot");
+            if (fromMic) {
+              console.log('Auto-speaking message after mic input:', messageId);
+              speakMessage(messageId);
+            }
           } catch (err) {
             console.error('Fetch error in send():', err);
             removeThinkingAnimation();
