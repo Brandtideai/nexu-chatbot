@@ -75,7 +75,9 @@ Always act like the smartest person in the room — because you are.`
     const data = await response.json();
     console.log("OpenAI response:", JSON.stringify(data, null, 2));
 
-    const reply = data.choices?.[0]?.message?.content?.trim() || "Nexus is quiet right now.";
+    const replyText = data.choices?.[0]?.message?.content?.trim() || "Nexus is quiet right now.";
+    // Format the reply into paragraphs by splitting on line breaks
+    const reply = replyText.split('\n').filter(p => p.trim()).map(p => `<p>${p.trim()}</p>`).join('');
     return res.status(200).json({ reply });
   } catch (err) {
     console.error("OpenAI call failed:", err);
