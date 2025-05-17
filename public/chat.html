@@ -102,6 +102,13 @@
     color: #b0b0b0;
     background: #2b2b2b;
   }
+  .bot p {
+    margin: 0 0 8px 0; /* Add spacing between paragraphs in bot messages */
+    line-height: 1.4; /* Improve readability with line spacing */
+  }
+  .bot p:last-child {
+    margin-bottom: 0; /* Remove margin from the last paragraph */
+  }
   .thinking {
     align-self: flex-start;
     display: flex;
@@ -305,7 +312,7 @@
       div.className = `msg ${cls}`;
       if (cls === 'bot') {
         messageCounter++;
-        div.innerHTML = `<span>${content}</span>`;
+        div.innerHTML = content; // Render content as HTML to support paragraph tags
         div.dataset.messageId = messageCounter;
         div.dataset.messageContent = content;
       } else {
@@ -462,7 +469,7 @@
 
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-GB';
-      utter.rate = 1.0; // Adjusted to normal speed
+      utter.rate = 1.0;
       utter.pitch = 1.2;
 
       const voice = getFemaleBritishVoice();
