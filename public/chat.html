@@ -296,7 +296,7 @@
     let voicesLoaded = false;
     let lastSpeechTime = 0;
     const DEBOUNCE_DELAY = 1000;
-    let messageCounter = 0; // Unique ID for each bot message
+    let messageCounter = 0;
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
@@ -309,7 +309,7 @@
             <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
           </button>`;
         div.dataset.messageId = messageCounter;
-        div.dataset.messageContent = content; // Store content in dataset
+        div.dataset.messageContent = content;
       } else {
         div.innerHTML = content;
       }
@@ -327,7 +327,7 @@
     }
 
     function removeThinkingAnimation() {
-      const thinkingDiv = document.getElementById('thinking-indicator');
+      const thinkingDiv = document.getElementById("thinking-indicator");
       if (thinkingDiv) {
         thinkingDiv.remove();
       }
@@ -372,6 +372,14 @@
     // Force voice load on page load
     speechSynthesis.getVoices();
 
+    // Test SpeechSynthesis support
+    if ('speechSynthesis' in window) {
+      console.log('SpeechSynthesis supported by browser');
+    } else {
+      console.error('SpeechSynthesis not supported by browser');
+      appendMsg("Speech output is not supported by your browser. Please try a different browser like Chrome or Firefox.", "bot");
+    }
+
     function speakMessage(messageId) {
       console.log('speakMessage called with messageId:', messageId);
       const messageDiv = document.querySelector(`.msg[data-message-id="${messageId}"]`);
@@ -396,7 +404,7 @@
         setTimeout(() => {
           if (!voicesLoaded) {
             console.error('Voices failed to load after timeout');
-            appendMsg("Speech synthesis failed: Voices not loaded.", "bot");
+            appendMsg("Speech synthesis failed: Voices not loaded. Please try again or use a different browser.", "bot");
           }
         }, 2000);
       } else {
@@ -411,7 +419,7 @@
         utterance.voice = femaleBritishVoice;
       } else {
         console.error('No voice available for speech synthesis');
-        appendMsg("Speech synthesis failed: No suitable voice available.", "bot");
+        appendMsg("Speech synthesis failed: No suitable voice available. Please ensure your browser supports speech synthesis and has voices installed.", "bot");
         return;
       }
       utterance.lang = 'en-GB';
@@ -437,7 +445,7 @@
 
       utterance.onerror = (e) => {
         console.error('Speech synthesis error:', e.error);
-        appendMsg("Speech synthesis failed: " + e.error, "bot");
+        appendMsg("Speech synthesis failed: " + e.error + ". Please ensure your device's audio is not muted and browser permissions allow audio playback.", "bot");
         if (isMicActive && recognition) {
           recognition.start();
           console.log('SpeechRecognition resumed after speech synthesis error');
@@ -454,7 +462,7 @@
         console.log('Speech synthesis initiated');
       } catch (err) {
         console.error('Speech synthesis speak error:', err);
-        appendMsg("Speech synthesis failed: " + err.message, "bot");
+        appendMsg("Speech synthesis failed: " + err.message + ". Please try a regular browser window or a different browser.", "bot");
       }
     }
 
@@ -594,6 +602,8 @@
           errorMsg += "No microphone detected. Please ensure a microphone is connected.";
         } else if (e.error === "not-allowed") {
           errorMsg += "Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.";
+        } else if (e.error === "network") {
+          errorMsg += "Network error with speech recognition. Please check your internet connection or try in a regular browser window (not incognito).";
         } else {
           errorMsg += e.error;
         }
