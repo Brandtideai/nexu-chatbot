@@ -312,7 +312,7 @@
       div.className = `msg ${cls}`;
       if (cls === 'bot') {
         messageCounter++;
-        div.innerHTML = content; // Render content as HTML to support paragraph tags
+        div.innerHTML = content;
         div.dataset.messageId = messageCounter;
         div.dataset.messageContent = content;
       } else {
@@ -375,7 +375,6 @@
       }
     }
 
-    // Enable audio context and speech synthesis only for non-iOS users
     if (!isIOS) {
       window.addEventListener("click", () => {
         if (audioContext && audioContext.state === "suspended") {
@@ -454,7 +453,7 @@
     }
 
     function speakMessage(messageId) {
-      if (isIOS) return; // Skip speech for iOS users
+      if (isIOS) return;
 
       console.log('speakMessage called with messageId:', messageId);
       initAudioContext();
@@ -473,7 +472,6 @@
         return;
       }
 
-      // Strip HTML tags to get plain text for speech
       const text = stripHtmlTags(htmlContent);
       if (!text || text.length < 2) {
         console.warn("No text content after stripping HTML:", text);
@@ -560,7 +558,7 @@
             removeThinkingAnimation();
             appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
           }
-        }, 500); // Reduced delay to 500ms
+        }, 500);
       } catch (err) {
         console.error('Error in send() setTimeout:', err);
         removeThinkingAnimation();
@@ -580,7 +578,6 @@
       }
     });
 
-    // Enable mic button only for non-iOS users
     if (!isIOS) {
       micIcon.onclick = async () => {
         console.log('micIcon clicked');
@@ -617,7 +614,7 @@
         recognition.lang = "en-GB";
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
-        recognition.continuous = true; // Keep recognition live after each result
+        recognition.continuous = true;
 
         try {
           const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
@@ -682,8 +679,10 @@
         recognition.onend = () => {
           console.log('Speech recognition ended');
           if (micIcon.classList.contains('active') && micErrorCount < MAX_MIC_ERRORS && !isSpeaking) {
-            recognition.start();
-            console.log('Speech recognition restarted');
+            setTimeout(() => {
+              recognition.start();
+              console.log('Speech recognition restarted');
+            }, 100);
           }
         };
       };
