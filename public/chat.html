@@ -89,6 +89,9 @@
     border-radius: 20px;
     position: relative;
     word-wrap: break-word;
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
   .user {
     align-self: flex-end;
@@ -99,6 +102,22 @@
     align-self: flex-start;
     color: #b0b0b0;
     background: #2b2b2b;
+  }
+  .speak-btn {
+    background: var(--brand-teal);
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .speak-btn svg {
+    width: 12px;
+    height: 12px;
+    fill: white;
   }
   .thinking {
     align-self: flex-start;
@@ -274,11 +293,24 @@
     const micIcon = document.getElementById("nexus-mic");
     let isMicActive = false;
     let recognition = null;
+    let voicesLoaded = false;
+    let lastSpeechTime = 0;
+    const DEBOUNCE_DELAY = 1000;
+    let lastBotMessage = null;
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
-      div.innerHTML = content;
+      if (cls === 'bot') {
+        div.innerHTML = `
+          <span>${content}</span>
+          <button class="speak-btn" onclick="speakMessage('${content}')">
+            <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          </button>`;
+        lastBotMessage = content;
+      } else {
+        div.innerHTML = content;
+      }
       body.appendChild(div);
       div.scrollIntoView({ behavior: "smooth" });
     }
@@ -309,13 +341,117 @@
       }
     }
 
+    // Voice selection and speech synthesis setup
+    function getFemaleBritishVoice() {
+      const voices = speechSynthesis.getVoices();
+      const femaleBritishVoice = voices.find(voice => 
+        voice.lang === 'en-GB' && 
+        (voice.name.includes('Female') || 
+         voice.name.includes('Samantha') || 
+         voice.name.includes('Kate') || 
+         voice.name.includes('Serena')) && 
+        !voice.name.includes('Male') && 
+        !voice.name.includes('Daniel')
+      ) || voices.find(voice => voice.lang === 'en-GB') || voices[0];
+      if (femaleBritishVoice) {
+        console.log('Selected voice:', femaleBritishVoice.name, femaleBritishVoice.lang);
+      } else {
+        console.warn('No suitable voice found, using first available voice');
+      }
+      return femaleBritishVoice;
+    }
+
+    // Ensure voices are loaded
+    speechSynthesis.onvoiceschanged = () => {
+      voicesLoaded = true;
+      console.log('Voices loaded:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
+    };
+
+    // Force voice load on page load
+    speechSynthesis.getVoices();
+
+    function speakMessage(message) {
+      if (!voicesLoaded) {
+        console.warn('Voices not loaded yet, waiting for voiceschanged event');
+        speechSynthesis.onvoiceschanged = () => {
+          voicesLoaded = true;
+          console.log('Voices loaded during wait:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
+          proceedWithSpeech(message);
+        };
+        setTimeout(() => {
+          if (!voicesLoaded) {
+            console.error('Voices failed to load after timeout');
+            appendMsg("Speech synthesis failed: Voices not loaded.", "bot");
+          }
+        }, 2000);
+      } else {
+        proceedWithSpeech(message);
+      }
+    }
+
+    function proceedWithSpeech(message) {
+      const utterance = new SpeechSynthesisUtterance(message);
+      const femaleBritishVoice = getFemaleBritishVoice();
+      if (femaleBritishVoice) {
+        utterance.voice = femaleBritishVoice;
+      } else {
+        console.error('No voice available for speech synthesis');
+        appendMsg("Speech synthesis failed: No suitable voice available.", "bot");
+        return;
+      }
+      utterance.lang = 'en-GB';
+      utterance.rate = 1.15;
+
+      // Pause SpeechRecognition during speech synthesis to prevent loop
+      if (recognition && isMicActive) {
+        recognition.stop();
+        console.log('SpeechRecognition paused during speech synthesis');
+      }
+
+      utterance.onstart = () => {
+        console.log('Speech synthesis started');
+      };
+
+      utterance.onend = () => {
+        console.log('Speech synthesis ended');
+        if (isMicActive && recognition) {
+          recognition.start();
+          console.log('SpeechRecognition resumed after speech synthesis');
+        }
+      };
+
+      utterance.onerror = (e) => {
+        console.error('Speech synthesis error:', e.error);
+        appendMsg("Speech synthesis failed: " + e.error, "bot");
+        if (isMicActive && recognition) {
+          recognition.start();
+          console.log('SpeechRecognition resumed after speech synthesis error');
+        }
+      };
+
+      if (speechSynthesis.paused) {
+        speechSynthesis.resume();
+        console.log('Resumed speech synthesis');
+      }
+
+      try {
+        speechSynthesis.speak(utterance);
+        console.log('Speech synthesis initiated');
+      } catch (err) {
+        console.error('Speech synthesis speak error:', err);
+        appendMsg("Speech synthesis failed: " + err.message, "bot");
+      }
+    }
+
     async function send() {
       const text = input.value.trim();
       if (!text) return;
       appendMsg(text, 'user');
       input.value = '';
       showThinkingAnimation();
+      console.log('Starting wait timer at', new Date().toISOString());
       setTimeout(async () => {
+        console.log('Wait timer ended at', new Date().toISOString());
         try {
           const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
             method: "POST",
@@ -326,15 +462,6 @@
           removeThinkingAnimation();
           const reply = data.reply || "No response";
           appendMsg(reply, "bot");
-          const utterance = new SpeechSynthesisUtterance(reply);
-          const voices = speechSynthesis.getVoices();
-          const femaleBritishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.includes('Female')) || voices.find(voice => voice.lang === 'en-GB');
-          if (femaleBritishVoice) {
-            utterance.voice = femaleBritishVoice;
-          }
-          utterance.lang = 'en-GB';
-          utterance.rate = 1.15;
-          speechSynthesis.speak(utterance);
         } catch {
           removeThinkingAnimation();
           appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
