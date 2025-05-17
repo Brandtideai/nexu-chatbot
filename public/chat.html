@@ -273,6 +273,7 @@
     const body = document.getElementById("nexus-body");
     const micIcon = document.getElementById("nexus-mic");
     let isMicActive = false;
+    let recognition = null;
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
@@ -346,6 +347,25 @@
             }
             utterance.lang = 'en-GB';
             utterance.rate = 1.15; // Adjusted to a more natural conversational speed
+
+            // Pause SpeechRecognition during speech synthesis to prevent loop
+            if (recognition && isMicActive) {
+              recognition.stop();
+              console.log('SpeechRecognition paused during speech synthesis');
+            }
+
+            utterance.onstart = () => {
+              console.log('Speech synthesis started');
+            };
+
+            utterance.onend = () => {
+              console.log('Speech synthesis ended');
+              if (isMicActive && recognition) {
+                recognition.start();
+                console.log('SpeechRecognition resumed after speech synthesis');
+              }
+            };
+
             speechSynthesis.speak(utterance);
           }
         } catch {
@@ -363,7 +383,6 @@
     sendBtn.onclick = send;
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
 
-    let recognition = null;
     micIcon.onclick = async () => {
       if (!window.location.protocol.startsWith('https')) {
         appendMsg("Voice input requires HTTPS. Please access this site via a secure connection.", "bot");
