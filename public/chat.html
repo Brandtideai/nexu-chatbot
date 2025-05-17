@@ -295,7 +295,7 @@
     let isSpeaking = false;
     const MAX_MIC_ERRORS = 3;
     const DEBOUNCE_DELAY = 1000;
-    const RECOGNITION_RESTART_DELAY = 2000; // Increased delay to ensure no overlap
+    const RECOGNITION_RESTART_DELAY = 500; // Reduced for faster mic restart
 
     // Browser and device detection
     const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -452,10 +452,11 @@
       return div.textContent || div.innerText || '';
     }
 
-    function speakMessage(messageId) {
+    function speakMessage(messageId, retryCount = 0) {
       if (isIOS) return;
+      const MAX_RETRIES = 2;
 
-      console.log('speakMessage called with messageId:', messageId);
+      console.log('speakMessage called with messageId:', messageId, 'retryCount:', retryCount);
       initAudioContext();
 
       const msgEl = document.querySelector(`.msg[data-message-id="${messageId}"]`);
@@ -490,7 +491,7 @@
       isSpeaking = true;
       if (recognition && isMicActive) {
         recognition.stop();
-        recognition = null; // Ensure recognition is fully stopped
+        recognition = null;
         console.log('SpeechRecognition stopped during speech synthesis');
       }
 
@@ -513,19 +514,26 @@
 
       utter.onerror = (e) => {
         console.error('Speech synthesis error:', e.error);
-        appendMsg("Speech synthesis failed: " + e.error + ". Please check audio settings and browser permissions.", "bot");
         isSpeaking = false;
-        if (isMicActive && micErrorCount < MAX_MIC_ERRORS) {
+        if (e.error === "interrupted" && retryCount < MAX_RETRIES) {
+          console.log(`Retrying speech synthesis, attempt ${retryCount + 1} of ${MAX_RETRIES}`);
           setTimeout(() => {
-            if (micIcon.classList.contains('active') && !isSpeaking) {
-              startRecognition();
-              console.log('SpeechRecognition restarted after speech synthesis error');
-            }
-          }, RECOGNITION_RESTART_DELAY);
+            speakMessage(messageId, retryCount + 1);
+          }, 500);
+        } else {
+          appendMsg("Speech synthesis failed: " + e.error + ". Please check audio settings and browser permissions.", "bot");
+          if (isMicActive && micErrorCount < MAX_MIC_ERRORS) {
+            setTimeout(() => {
+              if (micIcon.classList.contains('active') && !isSpeaking) {
+                startRecognition();
+                console.log('SpeechRecognition restarted after speech synthesis error');
+              }
+            }, RECOGNITION_RESTART_DELAY);
+          }
         }
       };
 
-      speechSynthesis.cancel();
+      // Removed speechSynthesis.cancel() to prevent interruptions
       speechSynthesis.speak(utter);
       console.log('Speech synthesis initiated for message:', text);
     }
@@ -540,34 +548,25 @@
       appendMsg(text, 'user');
       input.value = '';
       showThinkingAnimation();
-      console.log('Starting wait timer at', new Date().toISOString());
+      console.log('Starting API call at', new Date().toISOString());
       try {
-        setTimeout(async () => {
-          console.log('Wait timer ended at', new Date().toISOString());
-          try {
-            const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ messages: [{ role: "user", content: text }] })
-            });
-            const data = await res.json();
-            removeThinkingAnimation();
-            const reply = data.reply || "No response";
-            const messageId = appendMsg(reply, "bot");
-            if (fromMic && !isIOS) {
-              console.log('Auto-speaking message after mic input:', messageId);
-              speakMessage(messageId);
-            }
-          } catch (err) {
-            console.error('Fetch error in send():', err);
-            removeThinkingAnimation();
-            appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
-          }
-        }, 500);
-      } catch (err) {
-        console.error('Error in send() setTimeout:', err);
+        const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: [{ role: "user", content: text }] })
+        });
+        const data = await res.json();
         removeThinkingAnimation();
-        appendMsg("Error sending message: " + err.message, "bot");
+        const reply = data.reply || "No response";
+        const messageId = appendMsg(reply, "bot");
+        if (fromMic && !isIOS) {
+          console.log('Auto-speaking message after mic input:', messageId);
+          speakMessage(messageId);
+        }
+      } catch (err) {
+        console.error('Fetch error in send():', err);
+        removeThinkingAnimation();
+        appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
       }
     }
 
@@ -579,7 +578,7 @@
       recognition.lang = "en-GB";
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
-      recognition.continuous = false; // Use manual restarts to control timing
+      recognition.continuous = false;
 
       recognition.onresult = (e) => {
         const now = Date.now();
