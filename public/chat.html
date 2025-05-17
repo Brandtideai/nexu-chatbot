@@ -310,7 +310,7 @@
       }
     }
 
-    // Ensure voices are loaded before attempting speech synthesis
+    // Voice selection and speech synthesis setup
     function getFemaleBritishVoice() {
       const voices = speechSynthesis.getVoices();
       const femaleBritishVoice = voices.find(voice => 
@@ -321,18 +321,19 @@
          voice.name.includes('Serena')) && 
         !voice.name.includes('Male') && 
         !voice.name.includes('Daniel')
-      ) || voices.find(voice => voice.lang === 'en-GB');
+      ) || voices.find(voice => voice.lang === 'en-GB') || voices[0];
       if (femaleBritishVoice) {
         console.log('Selected voice:', femaleBritishVoice.name);
       } else {
-        console.warn('No female British voice found, using default en-GB voice');
+        console.warn('No suitable voice found, using first available voice');
       }
       return femaleBritishVoice;
     }
 
+    // Ensure voices are loaded
     speechSynthesis.onvoiceschanged = () => {
       voicesLoaded = true;
-      console.log('Voices loaded:', speechSynthesis.getVoices().map(v => v.name));
+      console.log('Voices loaded:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
     };
 
     // Force voice load on page load
@@ -363,7 +364,7 @@
             await new Promise(resolve => {
               speechSynthesis.onvoiceschanged = () => {
                 voicesLoaded = true;
-                console.log('Voices loaded during wait:', speechSynthesis.getVoices().map(v => v.name));
+                console.log('Voices loaded during wait:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
                 resolve();
               };
               // Fallback timeout after 2 seconds
@@ -375,7 +376,7 @@
           if (femaleBritishVoice) {
             utterance.voice = femaleBritishVoice;
           } else {
-            console.error('No en-GB voice available');
+            console.error('No voice available for speech synthesis');
             appendMsg("Speech synthesis failed: No suitable voice available.", "bot");
             return;
           }
@@ -408,6 +409,12 @@
               console.log('SpeechRecognition resumed after speech synthesis error');
             }
           };
+
+          // Ensure speech synthesis is not paused
+          if (speechSynthesis.paused) {
+            speechSynthesis.resume();
+            console.log('Resumed speech synthesis');
+          }
 
           speechSynthesis.speak(utterance);
         } catch {
@@ -450,7 +457,7 @@
       recognition.lang = "en-GB";
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
-      recognition.continuous = true;
+      recognition.continuous = false; // Set to false to avoid overlapping sessions
 
       try {
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
@@ -472,7 +479,8 @@
       }
 
       recognition.onresult = (e) => {
-        const transcript = e.results[e.results.length - 1][0].transcript;
+        const transcript = e.results[0][0].transcript;
+        console.log('Speech recognition result:', transcript);
         input.value = transcript;
         send();
       };
@@ -490,14 +498,17 @@
         } else {
           errorMsg += e.error;
         }
+        console.error('Speech recognition error:', e.error);
         appendMsg(errorMsg, "bot");
         appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
         recognition = null;
       };
 
       recognition.onend = () => {
+        console.log('Speech recognition ended');
         if (micIcon.classList.contains('active')) {
           recognition.start();
+          console.log('Speech recognition restarted');
         }
       };
     };
