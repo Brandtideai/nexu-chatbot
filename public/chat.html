@@ -298,6 +298,7 @@
     let messageCounter = 0;
     let audioContext = null;
     let micErrorCount = 0;
+    let isSpeaking = false; // Flag to prevent mic loop during speech
     const MAX_MIC_ERRORS = 3;
     const DEBOUNCE_DELAY = 1000;
 
@@ -344,6 +345,17 @@
 
     function closeChatWindow() {
       try {
+        // Stop any ongoing speech
+        speechSynthesis.cancel();
+        console.log('Speech synthesis canceled on window close');
+        // Stop speech recognition if active
+        if (recognition && isMicActive) {
+          recognition.stop();
+          recognition = null;
+          isMicActive = false;
+          micIcon.classList.remove('active');
+          console.log('Speech recognition stopped on window close');
+        }
         window.parent.postMessage('closeChat', '*');
         console.log('Close message sent at', new Date().toISOString());
       } catch (err) {
@@ -447,20 +459,27 @@
 
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-GB';
-      utter.rate = 1.1;
+      utter.rate = 1.2; // Slightly faster for a livelier tone
+      utter.pitch = 1.5; // Higher pitch for a more upbeat tone (default is 1.0, range 0-2)
 
       const voice = getFemaleBritishVoice();
       if (voice) utter.voice = voice;
 
-      // Pause SpeechRecognition to prevent looping
+      // Prevent mic loop by setting speaking flag and stopping recognition
+      isSpeaking = true;
       if (recognition && isMicActive) {
         recognition.stop();
         console.log('SpeechRecognition paused during speech synthesis');
       }
 
+      utter.onstart = () => {
+        console.log('Speech synthesis started');
+      };
+
       utter.onend = () => {
         console.log('Speech synthesis ended');
-        if (isMicActive && recognition) {
+        isSpeaking = false; // Reset speaking flag
+        if (isMicActive && recognition && micErrorCount < MAX_MIC_ERRORS) {
           recognition.start();
           console.log('SpeechRecognition resumed after speech synthesis');
         }
@@ -469,7 +488,8 @@
       utter.onerror = (e) => {
         console.error('Speech synthesis error:', e.error);
         appendMsg("Speech synthesis failed: " + e.error + ". On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions.", "bot");
-        if (isMicActive && recognition) {
+        isSpeaking = false; // Reset speaking flag
+        if (isMicActive && recognition && micErrorCount < MAX_MIC_ERRORS) {
           recognition.start();
           console.log('SpeechRecognition resumed after speech synthesis error');
         }
@@ -604,8 +624,8 @@
 
       recognition.onresult = (e) => {
         const now = Date.now();
-        if (now - lastSpeechTime < DEBOUNCE_DELAY) {
-          console.log('Debounced duplicate speech input');
+        if (now - lastSpeechTime < DEBOUNCE_DELAY || isSpeaking) {
+          console.log('Debounced duplicate speech input or bot is speaking');
           return;
         }
         lastSpeechTime = now;
@@ -643,7 +663,7 @@
 
       recognition.onend = () => {
         console.log('Speech recognition ended');
-        if (micIcon.classList.contains('active') && micErrorCount < MAX_MIC_ERRORS) {
+        if (micIcon.classList.contains('active') && micErrorCount < MAX_MIC_ERRORS && !isSpeaking) {
           recognition.start();
           console.log('Speech recognition restarted');
         }
