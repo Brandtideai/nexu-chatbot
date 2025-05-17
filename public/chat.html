@@ -368,18 +368,6 @@
       }
     }
 
-    // Play a test beep to confirm audio output
-    function playTestBeep() {
-      if (!audioContext) initAudioContext();
-      const oscillator = audioContext.createOscillator();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
-      oscillator.connect(audioContext.destination);
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.5);
-      console.log('Test beep played');
-    }
-
     // Unlock audio on user interaction
     window.addEventListener("click", () => {
       if (audioContext && audioContext.state === "suspended") {
@@ -442,7 +430,6 @@
     function speakMessage(messageId) {
       console.log('speakMessage called with messageId:', messageId);
       initAudioContext();
-      playTestBeep();
 
       const msgEl = document.querySelector(`.msg[data-message-id="${messageId}"]`);
       if (!msgEl) {
@@ -464,6 +451,29 @@
 
       const voice = getFemaleBritishVoice();
       if (voice) utter.voice = voice;
+
+      // Pause SpeechRecognition to prevent looping
+      if (recognition && isMicActive) {
+        recognition.stop();
+        console.log('SpeechRecognition paused during speech synthesis');
+      }
+
+      utter.onend = () => {
+        console.log('Speech synthesis ended');
+        if (isMicActive && recognition) {
+          recognition.start();
+          console.log('SpeechRecognition resumed after speech synthesis');
+        }
+      };
+
+      utter.onerror = (e) => {
+        console.error('Speech synthesis error:', e.error);
+        appendMsg("Speech synthesis failed: " + e.error + ". On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions.", "bot");
+        if (isMicActive && recognition) {
+          recognition.start();
+          console.log('SpeechRecognition resumed after speech synthesis error');
+        }
+      };
 
       speechSynthesis.cancel();
       speechSynthesis.speak(utter);
