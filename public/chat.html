@@ -297,6 +297,7 @@
     let lastSpeechTime = 0;
     const DEBOUNCE_DELAY = 1000;
     let messageCounter = 0;
+    let audioContext = null;
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
@@ -343,9 +344,38 @@
       }
     }
 
+    // Initialize AudioContext for audio permission prompt
+    function initAudioContext() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('AudioContext initialized');
+      }
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          console.log('AudioContext resumed');
+        }).catch(err => {
+          console.error('Failed to resume AudioContext:', err);
+          appendMsg("Audio permission error: Please allow audio playback in browser settings.", "bot");
+        });
+      }
+    }
+
+    // Play a test beep to confirm audio output
+    function playTestBeep() {
+      if (!audioContext) initAudioContext();
+      const oscillator = audioContext.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
+      oscillator.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.5);
+      console.log('Test beep played');
+    }
+
     // Voice selection and speech synthesis setup
     function getFemaleBritishVoice() {
       const voices = speechSynthesis.getVoices();
+      console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
       const femaleBritishVoice = voices.find(voice => 
         voice.lang === 'en-GB' && 
         (voice.name.includes('Female') || 
@@ -382,6 +412,8 @@
 
     function speakMessage(messageId) {
       console.log('speakMessage called with messageId:', messageId);
+      initAudioContext(); // Ensure audio permission prompt
+      playTestBeep(); // Test audio output
       const messageDiv = document.querySelector(`.msg[data-message-id="${messageId}"]`);
       if (!messageDiv) {
         console.error('Message div not found for ID:', messageId);
@@ -413,6 +445,7 @@
     }
 
     function proceedWithSpeech(message) {
+      let speechStarted = false;
       const utterance = new SpeechSynthesisUtterance(message);
       const femaleBritishVoice = getFemaleBritishVoice();
       if (femaleBritishVoice) {
@@ -432,6 +465,7 @@
       }
 
       utterance.onstart = () => {
+        speechStarted = true;
         console.log('Speech synthesis started');
       };
 
@@ -460,9 +494,15 @@
       try {
         speechSynthesis.speak(utterance);
         console.log('Speech synthesis initiated');
+        setTimeout(() => {
+          if (!speechStarted) {
+            console.error('Speech synthesis did not start within 5 seconds');
+            appendMsg("Speech synthesis failed: Did not start within 5 seconds. Please check audio settings and browser permissions. Test audio with a simple sound: <a href='javascript:playTestBeep()'>Click here</a>.", "bot");
+          }
+        }, 5000);
       } catch (err) {
         console.error('Speech synthesis speak error:', err);
-        appendMsg("Speech synthesis failed: " + err.message + ". Please try a regular browser window or a different browser.", "bot");
+        appendMsg("Speech synthesis failed: " + err.message + ". Please try a different browser or device.", "bot");
       }
     }
 
@@ -603,7 +643,7 @@
         } else if (e.error === "not-allowed") {
           errorMsg += "Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.";
         } else if (e.error === "network") {
-          errorMsg += "Network error with speech recognition. Please check your internet connection or try in a regular browser window (not incognito).";
+          errorMsg += "Network error with speech recognition. Please check your internet connection, disable VPN if active, and ensure Google's speech recognition service is accessible.";
         } else {
           errorMsg += e.error;
         }
