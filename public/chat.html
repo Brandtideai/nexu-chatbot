@@ -314,13 +314,14 @@
     let recognition = null;
     let voicesLoaded = false;
     let lastSpeechTime = 0;
+    let lastMessageId = 0; // Track the latest message ID for auto-speak
     const DEBOUNCE_DELAY = 1000;
     let messageCounter = 0;
     let audioContext = null;
     let micErrorCount = 0;
     const MAX_MIC_ERRORS = 3;
 
-    function appendMsg(content, cls) {
+    function appendMsg(content, cls, fromMic = false) {
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
       if (cls === 'bot') {
@@ -337,6 +338,14 @@
           console.log('Trying to speak message:', messageCounter);
           speakMessage(messageCounter);
         });
+        lastMessageId = messageCounter; // Update the latest message ID
+        if (fromMic) {
+          // Auto-speak the bot's reply after mic input
+          setTimeout(() => {
+            console.log('Auto-speaking message after mic input:', lastMessageId);
+            speakMessage(lastMessageId);
+          }, 500); // Small delay to ensure DOM is updated
+        }
       } else {
         div.innerHTML = content;
       }
@@ -461,7 +470,7 @@
       const testUtterance = new SpeechSynthesisUtterance("Testing speech synthesis.");
       testUtterance.voice = null; // Use default system voice
       testUtterance.lang = "en-GB";
-      testUtterance.rate = 0.9;
+      testUtterance.rate = 1.1; // Adjusted for slightly faster speech
       speechSynthesis.cancel(); // Clear queue
       speechSynthesis.speak(testUtterance);
       console.log('Speak test initiated');
@@ -488,7 +497,7 @@
 
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-GB';
-      utter.rate = 0.9;
+      utter.rate = 1.1; // Adjusted for slightly faster speech
 
       const voice = getFemaleBritishVoice();
       if (voice) utter.voice = voice;
@@ -498,7 +507,7 @@
       console.log('Speech synthesis initiated for message:', text);
     }
 
-    async function send() {
+    async function send(fromMic = false) {
       console.log('send() called');
       const text = input.value.trim();
       if (!text) {
@@ -521,7 +530,7 @@
             const data = await res.json();
             removeThinkingAnimation();
             const reply = data.reply || "No response";
-            appendMsg(reply, "bot");
+            appendMsg(reply, "bot", fromMic);
           } catch (err) {
             console.error('Fetch error in send():', err);
             removeThinkingAnimation();
@@ -626,7 +635,7 @@
         const transcript = e.results[0][0].transcript;
         console.log('Speech recognition result:', transcript);
         input.value = transcript;
-        send();
+        send(true); // Indicate this send is from mic input
       };
 
       recognition.onerror = (e) => {
