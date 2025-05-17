@@ -323,22 +323,28 @@
     function appendMsg(content, cls) {
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
-      div.innerHTML = `<span>${content}</span>`;
       if (cls === 'bot') {
         messageCounter++;
-        const speakButton = document.createElement('button');
-        speakButton.className = 'speak-btn';
-        speakButton.innerHTML = `
-          <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>`;
-        speakButton.dataset.messageId = messageCounter;
-        speakButton.addEventListener('click', () => {
-          speakMessage(speakButton.dataset.messageId);
-        });
-        div.appendChild(speakButton);
+        div.innerHTML = `
+          <span>${content}</span>
+          <button class="speak-btn">
+            <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          </button>`;
         div.dataset.messageId = messageCounter;
+        div.dataset.messageContent = content;
+        const speakButton = div.querySelector('.speak-btn');
+        speakButton.addEventListener('click', () => {
+          console.log('Trying to speak message:', messageCounter);
+          speakMessage(messageCounter);
+        });
+      } else {
+        div.innerHTML = content;
       }
       body.appendChild(div);
       div.scrollIntoView({ behavior: "smooth" });
+      if (cls === 'bot') {
+        speakTest(); // Force test to confirm speech works in this context
+      }
     }
 
     function showThinkingAnimation() {
@@ -408,6 +414,26 @@
       }
     }, { once: true });
 
+    function getFemaleBritishVoice() {
+      const voices = speechSynthesis.getVoices();
+      console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+      const femaleBritishVoice = voices.find(voice => 
+        voice.lang === 'en-GB' && 
+        (voice.name.includes('Female') || 
+         voice.name.includes('Samantha') || 
+         voice.name.includes('Kate') || 
+         voice.name.includes('Serena')) && 
+        !voice.name.includes('Male') && 
+        !voice.name.includes('Daniel')
+      ) || voices.find(voice => voice.lang === 'en-GB') || voices[0];
+      if (femaleBritishVoice) {
+        console.log('Selected voice:', femaleBritishVoice.name, femaleBritishVoice.lang);
+      } else {
+        console.warn('No suitable voice found, using first available voice');
+      }
+      return femaleBritishVoice;
+    }
+
     // Ensure voices are loaded
     speechSynthesis.onvoiceschanged = () => {
       voicesLoaded = true;
@@ -448,101 +474,31 @@
       console.log('speakMessage called with messageId:', messageId);
       initAudioContext();
       playTestBeep();
-      const messageDiv = document.querySelector(`.msg[data-message-id="${messageId}"]`);
-      if (!messageDiv) {
-        console.error('Message div not found for ID:', messageId);
+
+      const msgEl = document.querySelector(`.msg[data-message-id="${messageId}"]`);
+      if (!msgEl) {
+        console.error("Couldn't find message with ID", messageId);
         appendMsg("Error: Could not find message to speak.", "bot");
         return;
       }
-      const messageSpan = messageDiv.querySelector('span');
-      if (!messageSpan) {
-        console.error('Message span not found for ID:', messageId);
-        appendMsg("Error: Could not retrieve message content.", "bot");
+
+      const text = msgEl.dataset.messageContent?.trim();
+      if (!text || text.length < 2) {
+        console.warn("No message content found or too short to speak:", text);
+        appendMsg("Error: Message content is empty or too short to speak.", "bot");
         return;
       }
-      const message = messageSpan.textContent;
-      console.log('Message to speak:', message);
-      if (!message) {
-        console.error('Message content is empty for ID:', messageId);
-        appendMsg("Error: Message content is empty.", "bot");
-        return;
-      }
-      if (!voicesLoaded) {
-        console.warn('Voices not loaded yet, waiting for voiceschanged event');
-        speechSynthesis.onvoiceschanged = () => {
-          voicesLoaded = true;
-          console.log('Voices loaded during wait:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
-          proceedWithSpeech(message);
-        };
-        setTimeout(() => {
-          if (!voicesLoaded) {
-            console.error('Voices failed to load after timeout');
-            appendMsg("Speech synthesis failed: Voices not loaded. Please try again or use a different browser.", "bot");
-            playTestBeep();
-          }
-        }, 2000);
-      } else {
-        proceedWithSpeech(message);
-      }
-    }
 
-    function proceedWithSpeech(message) {
-      let speechStarted = false;
-      let utteranceStarted = false;
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.voice = null; // Use default system voice
-      utterance.lang = 'en-GB';
-      utterance.rate = 0.9; // Safe value for browser compatibility
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-GB';
+      utter.rate = 0.9;
 
-      // Pause SpeechRecognition during speech synthesis to prevent loop
-      if (recognition && isMicActive) {
-        recognition.stop();
-        console.log('SpeechRecognition paused during speech synthesis');
-      }
+      const voice = getFemaleBritishVoice();
+      if (voice) utter.voice = voice;
 
-      utterance.onstart = () => {
-        utteranceStarted = true;
-        speechStarted = true;
-        console.log('Speech synthesis started');
-      };
-
-      utterance.onend = () => {
-        console.log('Speech synthesis ended');
-        if (isMicActive && recognition) {
-          recognition.start();
-          console.log('SpeechRecognition resumed after speech synthesis');
-        }
-      };
-
-      utterance.onerror = (e) => {
-        console.error('Speech synthesis error:', e.error);
-        appendMsg("Speech synthesis failed: " + e.error + ". On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions. Test audio with a simple sound: <a href='javascript:playTestBeep()'>Click here</a>.", "bot");
-        if (isMicActive && recognition) {
-          recognition.start();
-          console.log('SpeechRecognition resumed after speech synthesis error');
-        }
-      };
-
-      if (speechSynthesis.paused) {
-        speechSynthesis.resume();
-        console.log('Resumed speech synthesis');
-      }
-
-      try {
-        speechSynthesis.cancel(); // Clear queue
-        speechSynthesis.speak(utterance);
-        console.log('Speech synthesis initiated');
-        setTimeout(() => {
-          if (!utteranceStarted) {
-            console.error('Speech synthesis never started – fallback triggered');
-            appendMsg("Speech synthesis didn’t start. Try tapping the screen first, unmute, or reload the page. Test audio with a simple sound: <a href='javascript:playTestBeep()'>Click here</a>.", "bot");
-            playTestBeep();
-          }
-        }, 1500);
-      } catch (err) {
-        console.error('Speech synthesis speak error:', err);
-        appendMsg("Speech synthesis failed: " + err.message + ". Please try a different browser or device.", "bot");
-      }
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utter);
+      console.log('Speech synthesis initiated for message:', text);
     }
 
     async function send() {
