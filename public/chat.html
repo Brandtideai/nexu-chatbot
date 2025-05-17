@@ -40,6 +40,8 @@
     background-size: cover;
     background-color: #303030;
     border: 2px solid var(--brand-teal);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
   }
   #nexus-close {
     position: absolute;
@@ -127,10 +129,13 @@
     display: flex;
     align-items: center;
     padding: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
     background: #191919;
     border-top: 1px solid #333;
     gap: 6px;
     flex-shrink: 0;
+    position: relative;
+    z-index: 10001;
   }
   #nexus-input {
     flex: 1;
@@ -177,7 +182,7 @@
       bottom: auto;
       right: auto;
       width: 100vw;
-      height: 100vh;
+      height: calc(100vh - env(safe-area-inset-bottom));
       max-width: none;
       max-height: none;
       border-radius: 0;
@@ -219,6 +224,7 @@
     }
     #nexus-footer {
       padding: 10px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
       gap: 8px;
     }
     #nexus-input {
@@ -279,18 +285,19 @@
     let messageCounter = 0;
     let audioContext = null;
     let micErrorCount = 0;
-    let isSpeaking = false; // Flag to prevent mic loop during speech
+    let isSpeaking = false;
     const MAX_MIC_ERRORS = 3;
     const DEBOUNCE_DELAY = 1000;
-    let recognitionRetryCount = 0;
-    const MAX_RECOGNITION_RETRIES = 3;
+    const RECOGNITION_RESTART_DELAY = 1500;
 
-    // Browser detection for Chrome on iOS
-    const isChromeIOS = /CriOS/.test(navigator.userAgent) && /iPhone|iPad|iPod/.test(navigator.userAgent);
+    // Browser and device detection
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isChromeIOS = /CriOS/.test(navigator.userAgent) && isIOS;
+    const isSafariIOS = /Safari/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent) && isIOS;
 
-    // Warn users on Chrome iOS about potential issues
-    if (isChromeIOS) {
-      appendMsg("Warning: Voice features may be buggy on Chrome for iOS. For the best experience, please use Safari.", "bot");
+    // Disable voice features and remove mic icon for iOS users
+    if (isIOS) {
+      micIcon.style.display = 'none';
     }
 
     function appendMsg(content, cls) {
@@ -327,14 +334,16 @@
 
     function closeChatWindow() {
       try {
-        speechSynthesis.cancel();
-        console.log('Speech synthesis canceled on window close');
-        if (recognition && isMicActive) {
-          recognition.stop();
-          recognition = null;
-          isMicActive = false;
-          micIcon.classList.remove('active');
-          console.log('Speech recognition stopped on window close');
+        if (!isIOS) {
+          speechSynthesis.cancel();
+          console.log('Speech synthesis canceled on window close');
+          if (recognition && isMicActive) {
+            recognition.stop();
+            recognition = null;
+            isMicActive = false;
+            micIcon.classList.remove('active');
+            console.log('Speech recognition stopped on window close');
+          }
         }
         window.parent.postMessage('closeChat', '*');
         console.log('Close message sent at', new Date().toISOString());
@@ -354,22 +363,62 @@
           console.log('AudioContext resumed');
         }).catch(err => {
           console.error('Failed to resume AudioContext:', err);
-          appendMsg("Audio permission error: Please allow audio playback in browser settings.", "bot");
+          appendMsg("Audio permission error: Please tap the screen to enable audio, or check browser settings.", "bot");
         });
       }
     }
 
-    window.addEventListener("click", () => {
-      if (audioContext && audioContext.state === "suspended") {
-        audioContext.resume().then(() => {
-          console.log("Audio resumed after user click");
-        });
+    // Enable audio context and speech synthesis only for non-iOS users
+    if (!isIOS) {
+      window.addEventListener("click", () => {
+        if (audioContext && audioContext.state === "suspended") {
+          audioContext.resume().then(() => {
+            console.log("Audio resumed after user click");
+          });
+        }
+        if (speechSynthesis.paused) {
+          speechSynthesis.resume();
+          console.log("Speech synthesis resumed after user click");
+        }
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          console.log("App foregrounded, resuming audio context");
+          initAudioContext();
+          if (speechSynthesis.paused) {
+            speechSynthesis.resume();
+            console.log("Speech synthesis resumed on app foreground");
+          }
+        } else {
+          console.log("App backgrounded, pausing speech synthesis");
+          speechSynthesis.pause();
+        }
+      });
+
+      speechSynthesis.onvoiceschanged = () => {
+        voicesLoaded = true;
+        console.log('Voices loaded:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
+      };
+
+      window.addEventListener('load', () => {
+        initAudioContext();
+        speechSynthesis.getVoices();
+        setTimeout(() => {
+          if (!voicesLoaded) {
+            speechSynthesis.getVoices();
+            console.log('Forced voice load after 200ms');
+          }
+        }, 200);
+      });
+
+      if ('speechSynthesis' in window) {
+        console.log('SpeechSynthesis supported by browser');
+      } else {
+        console.error('SpeechSynthesis not supported by browser');
+        appendMsg("Speech output is not supported by your browser. Please try a different browser.", "bot");
       }
-      if (speechSynthesis.paused) {
-        speechSynthesis.resume();
-        console.log("Speech synthesis resumed after user click");
-      }
-    }, { once: true });
+    }
 
     function getFemaleBritishVoice() {
       const voices = speechSynthesis.getVoices();
@@ -391,30 +440,9 @@
       return femaleBritishVoice;
     }
 
-    speechSynthesis.onvoiceschanged = () => {
-      voicesLoaded = true;
-      console.log('Voices loaded:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
-    };
-
-    window.addEventListener('load', () => {
-      initAudioContext();
-      speechSynthesis.getVoices();
-      setTimeout(() => {
-        if (!voicesLoaded) {
-          speechSynthesis.getVoices();
-          console.log('Forced voice load after 200ms');
-        }
-      }, 200);
-    });
-
-    if ('speechSynthesis' in window) {
-      console.log('SpeechSynthesis supported by browser');
-    } else {
-      console.error('SpeechSynthesis not supported by browser');
-      appendMsg("Speech output is not supported by your browser. Please try a different browser like Safari or Firefox.", "bot");
-    }
-
     function speakMessage(messageId) {
+      if (isIOS) return; // Skip speech for iOS users
+
       console.log('speakMessage called with messageId:', messageId);
       initAudioContext();
 
@@ -454,35 +482,28 @@
         console.log('Speech synthesis ended');
         isSpeaking = false;
         if (isMicActive && recognition && micErrorCount < MAX_MIC_ERRORS) {
-          recognition.start();
-          console.log('SpeechRecognition resumed after speech synthesis');
+          setTimeout(() => {
+            recognition.start();
+            console.log('SpeechRecognition resumed after speech synthesis with delay');
+          }, RECOGNITION_RESTART_DELAY);
         }
       };
 
       utter.onerror = (e) => {
         console.error('Speech synthesis error:', e.error);
-        appendMsg("Speech synthesis failed: " + e.error + ". On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions.", "bot");
+        appendMsg("Speech synthesis failed: " + e.error + ". Please check audio settings and browser permissions.", "bot");
         isSpeaking = false;
         if (isMicActive && recognition && micErrorCount < MAX_MIC_ERRORS) {
-          recognition.start();
-          console.log('SpeechRecognition resumed after speech synthesis error');
+          setTimeout(() => {
+            recognition.start();
+            console.log('SpeechRecognition resumed after speech synthesis error with delay');
+          }, RECOGNITION_RESTART_DELAY);
         }
       };
 
       speechSynthesis.cancel();
       speechSynthesis.speak(utter);
       console.log('Speech synthesis initiated for message:', text);
-
-      // Monitor for audio output loss in Chrome on iOS
-      if (isChromeIOS) {
-        setTimeout(() => {
-          if (!speechSynthesis.speaking) {
-            console.warn('Speech synthesis may have stalled. Retrying...');
-            speechSynthesis.cancel();
-            speechSynthesis.speak(utter);
-          }
-        }, 5000);
-      }
     }
 
     async function send(fromMic = false) {
@@ -509,7 +530,7 @@
             removeThinkingAnimation();
             const reply = data.reply || "No response";
             const messageId = appendMsg(reply, "bot");
-            if (fromMic) {
+            if (fromMic && !isIOS) {
               console.log('Auto-speaking message after mic input:', messageId);
               speakMessage(messageId);
             }
@@ -538,120 +559,116 @@
       }
     });
 
-    micIcon.onclick = async () => {
-      console.log('micIcon clicked');
-      if (micErrorCount >= MAX_MIC_ERRORS) {
-        appendMsg("Voice input disabled due to repeated errors. Please type your message instead.", "bot");
-        micIcon.style.display = 'none';
-        return;
-      }
-      if (!window.location.protocol.startsWith('https')) {
-        appendMsg("Voice input requires HTTPS. Please access this site via a secure connection.", "bot");
-        appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
-        return;
-      }
-
-      if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-        appendMsg("Voice input is not supported on this device.", "bot");
-        return;
-      }
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-      if (micIcon.classList.contains('active')) {
-        if (recognition) {
-          recognition.stop();
-          recognition = null;
-          micIcon.classList.remove('active');
-          isMicActive = false;
-          console.log('Microphone stopped');
+    // Enable mic button only for non-iOS users
+    if (!isIOS) {
+      micIcon.onclick = async () => {
+        console.log('micIcon clicked');
+        if (micErrorCount >= MAX_MIC_ERRORS) {
+          appendMsg("Voice input disabled due to repeated errors. Please type your message instead.", "bot");
+          micIcon.style.display = 'none';
+          return;
         }
-        return;
-      }
-
-      recognition = new SpeechRecognition();
-      recognition.lang = "en-GB";
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-      recognition.continuous = false;
-
-      try {
-        const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
-        console.log('Microphone permission status:', permissionStatus.state);
-        if (permissionStatus.state === 'denied') {
-          appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.", "bot");
+        if (!window.location.protocol.startsWith('https')) {
+          appendMsg("Voice input requires HTTPS. Please access this site via a secure connection.", "bot");
           appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
           return;
         }
 
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        recognition.start();
-        micIcon.classList.add('active');
-        isMicActive = true;
-        console.log('Microphone started successfully');
-        recognitionRetryCount = 0; // Reset retry count on successful start
-      } catch (err) {
-        console.error('Microphone initialization error:', err);
-        appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone. Error: " + err.message, "bot");
-        appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
-        return;
-      }
-
-      recognition.onresult = (e) => {
-        const now = Date.now();
-        if (now - lastSpeechTime < DEBOUNCE_DELAY || isSpeaking) {
-          console.log('Debounced duplicate speech input or bot is speaking');
+        if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+          appendMsg("Voice input is not supported on this device.", "bot");
           return;
         }
-        lastSpeechTime = now;
-        const transcript = e.results[0][0].transcript;
-        console.log('Speech recognition result:', transcript);
-        input.value = transcript;
-        send(true);
-      };
 
-      recognition.onerror = (e) => {
-        micIcon.classList.remove('active');
-        isMicActive = false;
-        micErrorCount++;
-        let errorMsg = "Voice input error: ";
-        if (e.error === "no-speech") {
-          errorMsg += "No speech detected. Please try again.";
-        } else if (e.error === "audio-capture") {
-          errorMsg += "No microphone detected. Please ensure a microphone is connected.";
-        } else if (e.error === "not-allowed") {
-          errorMsg += "Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.";
-        } else if (e.error === "network") {
-          errorMsg += "Network error with speech recognition. Please check your internet connection, disable VPN if active, and ensure Google's speech recognition service is accessible.";
-        } else {
-          errorMsg += e.error;
-        }
-        console.error('Speech recognition error:', e.error);
-        appendMsg(errorMsg, "bot");
-        appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
-        
-        // Retry mechanism for Chrome on iOS
-        if (isChromeIOS && recognitionRetryCount < MAX_RECOGNITION_RETRIES && e.error !== "not-allowed") {
-          recognitionRetryCount++;
-          console.log(`Retrying speech recognition (${recognitionRetryCount}/${MAX_RECOGNITION_RETRIES})...`);
-          setTimeout(() => {
-            micIcon.click();
-          }, 1000);
-        } else if (micErrorCount >= MAX_MIC_ERRORS) {
-          appendMsg("Voice input disabled due to repeated errors. Please type your message instead.", "bot");
-          micIcon.style.display = 'none';
-        }
-        recognition = null;
-      };
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      recognition.onend = () => {
-        console.log('Speech recognition ended');
-        if (micIcon.classList.contains('active') && micErrorCount < MAX_MIC_ERRORS && !isSpeaking) {
+        if (micIcon.classList.contains('active')) {
+          if (recognition) {
+            recognition.stop();
+            recognition = null;
+            micIcon.classList.remove('active');
+            isMicActive = false;
+            console.log('Microphone stopped');
+          }
+          return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = "en-GB";
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        recognition.continuous = false;
+
+        try {
+          const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+          console.log('Microphone permission status:', permissionStatus.state);
+          if (permissionStatus.state === 'denied') {
+            appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.", "bot");
+            appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
+            return;
+          }
+
+          await navigator.mediaDevices.getUserMedia({ audio: true });
           recognition.start();
-          console.log('Speech recognition restarted');
+          micIcon.classList.add('active');
+          isMicActive = true;
+          console.log('Microphone started successfully');
+        } catch (err) {
+          console.error('Microphone initialization error:', err);
+          appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone. Error: " + err.message, "bot");
+          appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
+          return;
         }
+
+        recognition.onresult = (e) => {
+          const now = Date.now();
+          if (now - lastSpeechTime < DEBOUNCE_DELAY || isSpeaking) {
+            console.log('Debounced duplicate speech input or bot is speaking');
+            return;
+          }
+          lastSpeechTime = now;
+          const transcript = e.results[0][0].transcript;
+          console.log('Speech recognition result:', transcript);
+          input.value = transcript;
+          send(true);
+        };
+
+        recognition.onerror = (e) => {
+          micIcon.classList.remove('active');
+          isMicActive = false;
+          micErrorCount++;
+          let errorMsg = "Voice input error: ";
+          if (e.error === "no-speech") {
+            errorMsg += "No speech detected. Please try again.";
+          } else if (e.error === "audio-capture") {
+            errorMsg += "No microphone detected. Please ensure a microphone is connected.";
+          } else if (e.error === "not-allowed") {
+            errorMsg += "Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.";
+          } else if (e.error === "network") {
+            errorMsg += "Network error with speech recognition. Please check your internet connection, disable VPN if active, and ensure speech services are accessible.";
+          } else {
+            errorMsg += e.error;
+          }
+          console.error('Speech recognition error:', e.error);
+          appendMsg(errorMsg, "bot");
+          appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
+          if (micErrorCount >= MAX_MIC_ERRORS) {
+            appendMsg("Voice input disabled due to repeated errors. Please type your message instead.", "bot");
+            micIcon.style.display = 'none';
+          }
+          recognition = null;
+        };
+
+        recognition.onend = () => {
+          console.log('Speech recognition ended');
+          if (micIcon.classList.contains('active') && micErrorCount < MAX_MIC_ERRORS && !isSpeaking) {
+            setTimeout(() => {
+              recognition.start();
+              console.log('Speech recognition restarted with delay');
+            }, RECOGNITION_RESTART_DELAY);
+          }
+        };
       };
-    };
+    }
   </script>
 </body>
 </html>
