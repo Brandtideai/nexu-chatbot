@@ -295,7 +295,7 @@
     let isSpeaking = false;
     const MAX_MIC_ERRORS = 3;
     const DEBOUNCE_DELAY = 1000;
-    const RECOGNITION_RESTART_DELAY = 1500;
+    const RECOGNITION_RESTART_DELAY = 2000; // Increased delay to ensure no overlap
 
     // Browser and device detection
     const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -490,7 +490,8 @@
       isSpeaking = true;
       if (recognition && isMicActive) {
         recognition.stop();
-        console.log('SpeechRecognition paused during speech synthesis');
+        recognition = null; // Ensure recognition is fully stopped
+        console.log('SpeechRecognition stopped during speech synthesis');
       }
 
       utter.onstart = () => {
@@ -500,10 +501,12 @@
       utter.onend = () => {
         console.log('Speech synthesis ended');
         isSpeaking = false;
-        if (isMicActive && recognition && micErrorCount < MAX_MIC_ERRORS) {
+        if (isMicActive && micErrorCount < MAX_MIC_ERRORS) {
           setTimeout(() => {
-            recognition.start();
-            console.log('SpeechRecognition resumed after speech synthesis with delay');
+            if (micIcon.classList.contains('active') && !isSpeaking) {
+              startRecognition();
+              console.log('SpeechRecognition restarted after speech synthesis');
+            }
           }, RECOGNITION_RESTART_DELAY);
         }
       };
@@ -512,10 +515,12 @@
         console.error('Speech synthesis error:', e.error);
         appendMsg("Speech synthesis failed: " + e.error + ". Please check audio settings and browser permissions.", "bot");
         isSpeaking = false;
-        if (isMicActive && recognition && micErrorCount < MAX_MIC_ERRORS) {
+        if (isMicActive && micErrorCount < MAX_MIC_ERRORS) {
           setTimeout(() => {
-            recognition.start();
-            console.log('SpeechRecognition resumed after speech synthesis error with delay');
+            if (micIcon.classList.contains('active') && !isSpeaking) {
+              startRecognition();
+              console.log('SpeechRecognition restarted after speech synthesis error');
+            }
           }, RECOGNITION_RESTART_DELAY);
         }
       };
@@ -566,6 +571,70 @@
       }
     }
 
+    function startRecognition() {
+      if (!isMicActive || micErrorCount >= MAX_MIC_ERRORS || isSpeaking) return;
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = "en-GB";
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.continuous = false; // Use manual restarts to control timing
+
+      recognition.onresult = (e) => {
+        const now = Date.now();
+        if (now - lastSpeechTime < DEBOUNCE_DELAY || isSpeaking) {
+          console.log('Debounced duplicate speech input or bot is speaking');
+          return;
+        }
+        lastSpeechTime = now;
+        const transcript = e.results[0][0].transcript;
+        console.log('Speech recognition result:', transcript);
+        input.value = transcript;
+        send(true);
+      };
+
+      recognition.onerror = (e) => {
+        micIcon.classList.remove('active');
+        isMicActive = false;
+        micErrorCount++;
+        let errorMsg = "Voice input error: ";
+        if (e.error === "no-speech") {
+          errorMsg += "No speech detected. Please try again.";
+        } else if (e.error === "audio-capture") {
+          errorMsg += "No microphone detected. Please ensure a microphone is connected.";
+        } else if (e.error === "not-allowed") {
+          errorMsg += "Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.";
+        } else if (e.error === "network") {
+          errorMsg += "Network error with speech recognition. Please check your internet connection, disable VPN if active, and ensure speech services are accessible.";
+        } else {
+          errorMsg += e.error;
+        }
+        console.error('Speech recognition error:', e.error);
+        appendMsg(errorMsg, "bot");
+        appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
+        if (micErrorCount >= MAX_MIC_ERRORS) {
+          appendMsg("Voice input disabled due to repeated errors. Please type your message instead.", "bot");
+          micIcon.style.display = 'none';
+        }
+        recognition = null;
+      };
+
+      recognition.onend = () => {
+        console.log('Speech recognition ended');
+        if (micIcon.classList.contains('active') && micErrorCount < MAX_MIC_ERRORS && !isSpeaking) {
+          setTimeout(() => {
+            if (micIcon.classList.contains('active') && !isSpeaking) {
+              startRecognition();
+              console.log('Speech recognition restarted');
+            }
+          }, 100);
+        }
+      };
+
+      recognition.start();
+    }
+
     sendBtn.addEventListener('click', () => {
       console.log('Send button clicked');
       send();
@@ -597,8 +666,6 @@
           return;
         }
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
         if (micIcon.classList.contains('active')) {
           if (recognition) {
             recognition.stop();
@@ -610,12 +677,6 @@
           return;
         }
 
-        recognition = new SpeechRecognition();
-        recognition.lang = "en-GB";
-        recognition.interimResults = true;
-        recognition.maxAlternatives = 1;
-        recognition.continuous = true;
-
         try {
           const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
           console.log('Microphone permission status:', permissionStatus.state);
@@ -626,9 +687,9 @@
           }
 
           await navigator.mediaDevices.getUserMedia({ audio: true });
-          recognition.start();
           micIcon.classList.add('active');
           isMicActive = true;
+          startRecognition();
           console.log('Microphone started successfully');
         } catch (err) {
           console.error('Microphone initialization error:', err);
@@ -636,55 +697,6 @@
           appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
           return;
         }
-
-        recognition.onresult = (e) => {
-          const now = Date.now();
-          if (now - lastSpeechTime < DEBOUNCE_DELAY || isSpeaking) {
-            console.log('Debounced duplicate speech input or bot is speaking');
-            return;
-          }
-          lastSpeechTime = now;
-          const transcript = e.results[0][0].transcript;
-          console.log('Speech recognition result:', transcript);
-          input.value = transcript;
-          send(true);
-        };
-
-        recognition.onerror = (e) => {
-          micIcon.classList.remove('active');
-          isMicActive = false;
-          micErrorCount++;
-          let errorMsg = "Voice input error: ";
-          if (e.error === "no-speech") {
-            errorMsg += "No speech detected. Please try again.";
-          } else if (e.error === "audio-capture") {
-            errorMsg += "No microphone detected. Please ensure a microphone is connected.";
-          } else if (e.error === "not-allowed") {
-            errorMsg += "Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.";
-          } else if (e.error === "network") {
-            errorMsg += "Network error with speech recognition. Please check your internet connection, disable VPN if active, and ensure speech services are accessible.";
-          } else {
-            errorMsg += e.error;
-          }
-          console.error('Speech recognition error:', e.error);
-          appendMsg(errorMsg, "bot");
-          appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
-          if (micErrorCount >= MAX_MIC_ERRORS) {
-            appendMsg("Voice input disabled due to repeated errors. Please type your message instead.", "bot");
-            micIcon.style.display = 'none';
-          }
-          recognition = null;
-        };
-
-        recognition.onend = () => {
-          console.log('Speech recognition ended');
-          if (micIcon.classList.contains('active') && micErrorCount < MAX_MIC_ERRORS && !isSpeaking) {
-            setTimeout(() => {
-              recognition.start();
-              console.log('Speech recognition restarted');
-            }, 100);
-          }
-        };
       };
     }
   </script>
