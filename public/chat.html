@@ -89,9 +89,6 @@
     border-radius: 20px;
     position: relative;
     word-wrap: break-word;
-    display: flex;
-    align-items: center;
-    gap: 5px;
   }
   .user {
     align-self: flex-end;
@@ -102,22 +99,6 @@
     align-self: flex-start;
     color: #b0b0b0;
     background: #2b2b2b;
-  }
-  .speak-btn {
-    background: var(--brand-teal);
-    border: none;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .speak-btn svg {
-    width: 12px;
-    height: 12px;
-    fill: white;
   }
   .thinking {
     align-self: flex-start;
@@ -307,18 +288,9 @@
       div.className = `msg ${cls}`;
       if (cls === 'bot') {
         messageCounter++;
-        div.innerHTML = `
-          <span>${content}</span>
-          <button class="speak-btn">
-            <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-          </button>`;
+        div.innerHTML = `<span>${content}</span>`; // Removed speaker button
         div.dataset.messageId = messageCounter;
         div.dataset.messageContent = content;
-        const speakButton = div.querySelector('.speak-btn');
-        speakButton.addEventListener('click', () => {
-          console.log('Trying to speak message:', messageCounter);
-          speakMessage(messageCounter);
-        });
       } else {
         div.innerHTML = content;
       }
@@ -459,8 +431,8 @@
 
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-GB';
-      utter.rate = 1.2; // Slightly faster for a livelier tone
-      utter.pitch = 1.5; // Higher pitch for a more upbeat tone (default is 1.0, range 0-2)
+      utter.rate = 1.2; // Slightly faster for a lively tone
+      utter.pitch = 1.2; // Slightly higher pitch for an upbeat but natural tone (default 1.0, range 0-2)
 
       const voice = getFemaleBritishVoice();
       if (voice) utter.voice = voice;
