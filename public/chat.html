@@ -274,10 +274,6 @@
     const micIcon = document.getElementById("nexus-mic");
     let isMicActive = false;
     let recognition = null;
-    let voicesLoaded = false;
-    let lastSpeechTime = 0;
-    const DEBOUNCE_DELAY = 1000;
-    let hasSpoken = false; // Track if speech synthesis has been triggered
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
@@ -313,44 +309,13 @@
       }
     }
 
-    // Voice selection and speech synthesis setup
-    function getFemaleBritishVoice() {
-      const voices = speechSynthesis.getVoices();
-      const femaleBritishVoice = voices.find(voice => 
-        voice.lang === 'en-GB' && 
-        (voice.name.includes('Female') || 
-         voice.name.includes('Samantha') || 
-         voice.name.includes('Kate') || 
-         voice.name.includes('Serena')) && 
-        !voice.name.includes('Male') && 
-        !voice.name.includes('Daniel')
-      ) || voices.find(voice => voice.lang === 'en-GB') || voices[0];
-      if (femaleBritishVoice) {
-        console.log('Selected voice:', femaleBritishVoice.name, femaleBritishVoice.lang);
-      } else {
-        console.warn('No suitable voice found, using first available voice');
-      }
-      return femaleBritishVoice;
-    }
-
-    // Ensure voices are loaded
-    speechSynthesis.onvoiceschanged = () => {
-      voicesLoaded = true;
-      console.log('Voices loaded:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
-    };
-
-    // Force voice load on page load
-    speechSynthesis.getVoices();
-
     async function send() {
       const text = input.value.trim();
       if (!text) return;
       appendMsg(text, 'user');
       input.value = '';
       showThinkingAnimation();
-      console.log('Starting wait timer at', new Date().toISOString());
       setTimeout(async () => {
-        console.log('Wait timer ended at', new Date().toISOString());
         try {
           const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
             method: "POST",
@@ -361,70 +326,15 @@
           removeThinkingAnimation();
           const reply = data.reply || "No response";
           appendMsg(reply, "bot");
-          // Text-to-speech for every bot response
-          if (!voicesLoaded) {
-            console.warn('Voices not loaded yet, waiting for voiceschanged event');
-            await new Promise(resolve => {
-              speechSynthesis.onvoiceschanged = () => {
-                voicesLoaded = true;
-                console.log('Voices loaded during wait:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
-                resolve();
-              };
-              setTimeout(() => resolve(), 2000);
-            });
-          }
           const utterance = new SpeechSynthesisUtterance(reply);
-          const femaleBritishVoice = getFemaleBritishVoice();
+          const voices = speechSynthesis.getVoices();
+          const femaleBritishVoice = voices.find(voice => voice.lang === 'en-GB' && voice.name.includes('Female')) || voices.find(voice => voice.lang === 'en-GB');
           if (femaleBritishVoice) {
             utterance.voice = femaleBritishVoice;
-          } else {
-            console.error('No voice available for speech synthesis');
-            appendMsg("Speech synthesis failed: No suitable voice available.", "bot");
-            return;
           }
           utterance.lang = 'en-GB';
           utterance.rate = 1.15;
-
-          // Pause SpeechRecognition during speech synthesis to prevent loop
-          if (recognition && isMicActive) {
-            recognition.stop();
-            console.log('SpeechRecognition paused during speech synthesis');
-          }
-
-          utterance.onstart = () => {
-            console.log('Speech synthesis started');
-            hasSpoken = true;
-          };
-
-          utterance.onend = () => {
-            console.log('Speech synthesis ended');
-            if (isMicActive && recognition) {
-              recognition.start();
-              console.log('SpeechRecognition resumed after speech synthesis');
-            }
-          };
-
-          utterance.onerror = (e) => {
-            console.error('Speech synthesis error:', e.error);
-            appendMsg("Speech synthesis failed: " + e.error, "bot");
-            if (isMicActive && recognition) {
-              recognition.start();
-              console.log('SpeechRecognition resumed after speech synthesis error');
-            }
-          };
-
-          if (speechSynthesis.paused) {
-            speechSynthesis.resume();
-            console.log('Resumed speech synthesis');
-          }
-
-          try {
-            speechSynthesis.speak(utterance);
-            console.log('Speech synthesis initiated');
-          } catch (err) {
-            console.error('Speech synthesis speak error:', err);
-            appendMsg("Speech synthesis failed: " + err.message, "bot");
-          }
+          speechSynthesis.speak(utterance);
         } catch {
           removeThinkingAnimation();
           appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
@@ -434,6 +344,9 @@
 
     sendBtn.onclick = send;
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
+
+    let lastSpeechTime = 0;
+    const DEBOUNCE_DELAY = 1000;
 
     micIcon.onclick = async () => {
       if (!window.location.protocol.startsWith('https')) {
