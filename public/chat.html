@@ -296,18 +296,20 @@
     let voicesLoaded = false;
     let lastSpeechTime = 0;
     const DEBOUNCE_DELAY = 1000;
+    let messageCounter = 0; // Unique ID for each bot message
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
       if (cls === 'bot') {
-        // Escape single quotes in content to prevent breaking the onclick
-        const escapedContent = content.replace(/'/g, "\\'");
+        messageCounter++;
         div.innerHTML = `
           <span>${content}</span>
-          <button class="speak-btn" onclick="speakMessage('${escapedContent}')">
+          <button class="speak-btn" onclick="speakMessage('${messageCounter}')">
             <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
           </button>`;
+        div.dataset.messageId = messageCounter;
+        div.dataset.messageContent = content; // Store content in dataset
       } else {
         div.innerHTML = content;
       }
@@ -370,8 +372,20 @@
     // Force voice load on page load
     speechSynthesis.getVoices();
 
-    function speakMessage(message) {
-      console.log('speakMessage called with:', message);
+    function speakMessage(messageId) {
+      console.log('speakMessage called with messageId:', messageId);
+      const messageDiv = document.querySelector(`.msg[data-message-id="${messageId}"]`);
+      if (!messageDiv) {
+        console.error('Message div not found for ID:', messageId);
+        appendMsg("Error: Could not find message to speak.", "bot");
+        return;
+      }
+      const message = messageDiv.dataset.messageContent;
+      if (!message) {
+        console.error('Message content not found for ID:', messageId);
+        appendMsg("Error: Could not retrieve message content.", "bot");
+        return;
+      }
       if (!voicesLoaded) {
         console.warn('Voices not loaded yet, waiting for voiceschanged event');
         speechSynthesis.onvoiceschanged = () => {
