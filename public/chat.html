@@ -286,13 +286,11 @@
       <button id="nexus-send">Send</button>
     </div>
   </div>
-  <audio id="fallback-audio" src="https://www.soundjay.com/buttons/beep-01a.mp3"></audio>
   <script>
     const input = document.getElementById("nexus-input");
     const sendBtn = document.getElementById("nexus-send");
     const body = document.getElementById("nexus-body");
     const micIcon = document.getElementById("nexus-mic");
-    const fallbackAudio = document.getElementById("fallback-audio");
     let isMicActive = false;
     let recognition = null;
     let voicesLoaded = false;
@@ -376,16 +374,6 @@
       console.log('Test beep played');
     }
 
-    // Fallback audio playback
-    function playFallbackAudio() {
-      fallbackAudio.play().then(() => {
-        console.log('Fallback audio played');
-      }).catch(err => {
-        console.error('Fallback audio playback failed:', err);
-        appendMsg("Fallback audio failed: " + err.message + ". Please ensure your device's audio is not muted and browser permissions allow audio playback.", "bot");
-      });
-    }
-
     // Voice selection and speech synthesis setup
     function getFemaleBritishVoice() {
       const voices = speechSynthesis.getVoices();
@@ -413,10 +401,16 @@
       console.log('Voices loaded:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
     };
 
-    // Force voice load on page load and prompt audio permission
+    // Force voice load on page load
     window.addEventListener('load', () => {
       initAudioContext();
       speechSynthesis.getVoices();
+      setTimeout(() => {
+        if (!voicesLoaded) {
+          speechSynthesis.getVoices();
+          console.log('Forced voice load after 200ms');
+        }
+      }, 200);
     });
 
     // Test SpeechSynthesis support
@@ -429,8 +423,8 @@
 
     function speakMessage(messageId) {
       console.log('speakMessage called with messageId:', messageId);
-      initAudioContext(); // Ensure audio permission prompt
-      playTestBeep(); // Test audio output
+      initAudioContext();
+      playTestBeep();
       const messageDiv = document.querySelector(`.msg[data-message-id="${messageId}"]`);
       if (!messageDiv) {
         console.error('Message div not found for ID:', messageId);
@@ -453,8 +447,7 @@
         setTimeout(() => {
           if (!voicesLoaded) {
             console.error('Voices failed to load after timeout');
-            appendMsg("Speech synthesis failed: Voices not loaded. Falling back to audio notification.", "bot");
-            playFallbackAudio();
+            appendMsg("Speech synthesis failed: Voices not loaded. Please try again or use a different browser.", "bot");
           }
         }, 2000);
       } else {
@@ -470,12 +463,11 @@
         utterance.voice = femaleBritishVoice;
       } else {
         console.error('No voice available for speech synthesis');
-        appendMsg("Speech synthesis failed: No suitable voice available. Falling back to audio notification.", "bot");
-        playFallbackAudio();
+        appendMsg("Speech synthesis failed: No suitable voice available. Please ensure your browser supports speech synthesis and has voices installed.", "bot");
         return;
       }
       utterance.lang = 'en-GB';
-      utterance.rate = 1.15;
+      utterance.rate = 0.9; // Safe value for browser compatibility
 
       // Pause SpeechRecognition during speech synthesis to prevent loop
       if (recognition && isMicActive) {
@@ -498,8 +490,7 @@
 
       utterance.onerror = (e) => {
         console.error('Speech synthesis error:', e.error);
-        appendMsg("Speech synthesis failed: " + e.error + ". On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions. Falling back to audio notification.", "bot");
-        playFallbackAudio();
+        appendMsg("Speech synthesis failed: " + e.error + ". On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions. Test audio with a simple sound: <a href='javascript:playTestBeep()'>Click here</a>.", "bot");
         if (isMicActive && recognition) {
           recognition.start();
           console.log('SpeechRecognition resumed after speech synthesis error');
@@ -517,14 +508,12 @@
         setTimeout(() => {
           if (!speechStarted) {
             console.error('Speech synthesis did not start within 5 seconds');
-            appendMsg("Speech synthesis failed: Did not start within 5 seconds. On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions. Test audio with a simple sound: <a href='javascript:playTestBeep()'>Click here</a>. Falling back to audio notification.", "bot");
-            playFallbackAudio();
+            appendMsg("Speech synthesis failed: Did not start within 5 seconds. On iPhone, ensure the mute switch is off. On all devices, check audio settings and browser permissions. Test audio with a simple sound: <a href='javascript:playTestBeep()'>Click here</a>.", "bot");
           }
         }, 5000);
       } catch (err) {
         console.error('Speech synthesis speak error:', err);
-        appendMsg("Speech synthesis failed: " + err.message + ". Falling back to audio notification.", "bot");
-        playFallbackAudio();
+        appendMsg("Speech synthesis failed: " + err.message + ". Please try a different browser or device.", "bot");
       }
     }
 
