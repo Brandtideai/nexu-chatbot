@@ -277,6 +277,7 @@
     let voicesLoaded = false;
     let lastSpeechTime = 0;
     const DEBOUNCE_DELAY = 1000;
+    let hasSpoken = false; // Track if speech synthesis has been triggered
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
@@ -338,34 +339,8 @@
       console.log('Voices loaded:', speechSynthesis.getVoices().map(v => `${v.name} (${v.lang})`));
     };
 
-    // Force voice load on page load and test speech synthesis
+    // Force voice load on page load
     speechSynthesis.getVoices();
-    window.addEventListener('load', () => {
-      if (!voicesLoaded) {
-        console.log('Testing speech synthesis on page load...');
-        const testUtterance = new SpeechSynthesisUtterance('Testing speech synthesis');
-        const voice = getFemaleBritishVoice();
-        if (voice) {
-          testUtterance.voice = voice;
-          testUtterance.lang = 'en-GB';
-          testUtterance.rate = 1.15;
-          testUtterance.onstart = () => console.log('Test speech synthesis started');
-          testUtterance.onend = () => console.log('Test speech synthesis ended');
-          testUtterance.onerror = (e) => {
-            console.error('Test speech synthesis error:', e.error);
-            appendMsg("Test speech synthesis failed: " + e.error, "bot");
-          };
-          try {
-            speechSynthesis.speak(testUtterance);
-          } catch (err) {
-            console.error('Speech synthesis speak error on test:', err);
-            appendMsg("Speech synthesis failed on test: " + err.message, "bot");
-          }
-        } else {
-          appendMsg("No voice available for speech synthesis on startup.", "bot");
-        }
-      }
-    });
 
     async function send() {
       const text = input.value.trim();
@@ -418,6 +393,7 @@
 
           utterance.onstart = () => {
             console.log('Speech synthesis started');
+            hasSpoken = true;
           };
 
           utterance.onend = () => {
