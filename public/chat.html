@@ -79,22 +79,49 @@
     overflow-y: auto;
     background: transparent;
     font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
-  .msg { 
-    margin-bottom: 8px; 
-    white-space: pre-wrap; 
-    padding: 5px 8px;
-    border-radius: 8px;
+  .msg {
+    max-width: 75%;
+    padding: 8px 12px;
+    border-radius: 20px;
+    position: relative;
+    word-wrap: break-word;
   }
-  .user { 
-    text-align: right; 
-    color: #b0b0b0; 
+  .user {
+    align-self: flex-end;
+    color: #e0e0e0;
+    background: #1a3c34;
+  }
+  .bot {
+    align-self: flex-start;
+    color: #b0b0b0;
     background: #2b2b2b;
   }
-  .bot { 
-    text-align: left; 
-    color: #e0e0e0; 
-    background: #1a3c34;
+  .thinking {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    background: #2b2b2b;
+  }
+  .thinking .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--brand-teal);
+    border-radius: 50%;
+    animation: dots 1.5s infinite;
+  }
+  .thinking .dot:nth-child(2) { animation-delay: 0.2s; }
+  .thinking .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dots {
+    0%, 20% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+    60% { transform: translateY(0); }
   }
   #nexus-footer {
     display: flex;
@@ -128,13 +155,15 @@
   }
   #nexus-mic {
     cursor: pointer;
+    position: relative;
   }
   #nexus-mic svg {
     width: 18px;
     height: 18px;
     fill: var(--brand-teal);
   }
-  #nexus-mic svg.active {
+  #nexus-mic.active svg {
+    fill: #ff5555;
     animation: pulse 1.5s infinite;
   }
   @keyframes pulse {
@@ -177,9 +206,16 @@
       font-size: 18px;
     }
     .msg {
-      margin-bottom: 10px;
-      padding: 8px 12px;
-      border-radius: 10px;
+      padding: 10px 14px;
+      border-radius: 25px;
+    }
+    .thinking {
+      padding: 10px 14px;
+      border-radius: 25px;
+    }
+    .thinking .dot {
+      width: 8px;
+      height: 8px;
     }
     #nexus-footer {
       padding: 10px;
@@ -224,7 +260,7 @@
       <div class="msg bot">Hi! How can I assist you today?</div>
     </div>
     <div id="nexus-footer">
-      <div id="nexus-mic" title="Start voice input">
+      <div id="nexus-mic" title="Start/stop voice input">
         <svg id="mic-icon" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3zm5 10a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zm-5 11a1 1 0 0 1-1-1v-2h2v2a1 1 0 0 1-1 1z"/></svg>
       </div>
       <input id="nexus-input" placeholder="Ask Nexus anything..." autocomplete="off" />
@@ -235,14 +271,31 @@
     const input = document.getElementById("nexus-input");
     const sendBtn = document.getElementById("nexus-send");
     const body = document.getElementById("nexus-body");
-    const micIcon = document.getElementById("mic-icon");
+    const micIcon = document.getElementById("nexus-mic");
+    let isMicActive = false;
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
       div.innerHTML = content;
       body.appendChild(div);
-      body.scrollTop = body.scrollHeight;
+      div.scrollIntoView({ behavior: "smooth" });
+    }
+
+    function showThinkingAnimation() {
+      const thinkingDiv = document.createElement('div');
+      thinkingDiv.className = 'thinking';
+      thinkingDiv.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+      thinkingDiv.id = 'thinking-indicator';
+      body.appendChild(thinkingDiv);
+      thinkingDiv.scrollIntoView({ behavior: "smooth" });
+    }
+
+    function removeThinkingAnimation() {
+      const thinkingDiv = document.getElementById('thinking-indicator');
+      if (thinkingDiv) {
+        thinkingDiv.remove();
+      }
     }
 
     function closeChatWindow() {
@@ -260,23 +313,58 @@
       if (!text) return;
       appendMsg(text, 'user');
       input.value = '';
-      try {
-        const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: [{ role: "user", content: text }] })
-        });
-        const data = await res.json();
-        appendMsg(data.reply || "No response", "bot");
-      } catch {
-        appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
-      }
+      showThinkingAnimation();
+      setTimeout(async () => {
+        try {
+          const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: [{ role: "user", content: text }] })
+          });
+          const data = await res.json();
+          removeThinkingAnimation();
+          const reply = data.reply || "No response";
+          appendMsg(reply, "bot");
+          // Text-to-speech only if mic is active
+          if (isMicActive) {
+            const utterance = new SpeechSynthesisUtterance(reply);
+            const voices = speechSynthesis.getVoices();
+            const femaleBritishVoice = voices.find(voice => 
+              voice.lang === 'en-GB' && 
+              (voice.name.includes('Female') || 
+               voice.name.includes('Samantha') || 
+               voice.name.includes('Kate') || 
+               voice.name.includes('Serena')) && 
+              !voice.name.includes('Male') && 
+              !voice.name.includes('Daniel')
+            ) || voices.find(voice => voice.lang === 'en-GB');
+            if (femaleBritishVoice) {
+              utterance.voice = femaleBritishVoice;
+              console.log('Selected voice:', femaleBritishVoice.name);
+            } else {
+              console.warn('No female British voice found, using default en-GB voice');
+            }
+            utterance.lang = 'en-GB';
+            utterance.rate = 1.15; // Adjusted to a more natural conversational speed
+            speechSynthesis.speak(utterance);
+          }
+        } catch {
+          removeThinkingAnimation();
+          appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
+        }
+      }, 2000); // 2-second delay
     }
+
+    // Ensure voices are loaded before use
+    speechSynthesis.onvoiceschanged = () => {
+      console.log('Voices loaded:', speechSynthesis.getVoices().map(v => v.name));
+    };
 
     sendBtn.onclick = send;
     input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
 
-    document.getElementById("nexus-mic").onclick = async () => {
+    let recognition = null;
+    micIcon.onclick = async () => {
       if (!window.location.protocol.startsWith('https')) {
         appendMsg("Voice input requires HTTPS. Please access this site via a secure connection.", "bot");
         appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
@@ -289,20 +377,24 @@
       }
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (window.recognitionActive) {
-        window.recognition.stop();
-        window.recognitionActive = false;
-        micIcon.classList.remove("active");
+
+      if (micIcon.classList.contains('active')) {
+        // Stop listening
+        if (recognition) {
+          recognition.stop();
+          recognition = null;
+          micIcon.classList.remove('active');
+          isMicActive = false;
+          console.log('Microphone stopped');
+        }
         return;
       }
 
-      const recognition = new SpeechRecognition();
-      window.recognition = recognition;
-      window.recognitionActive = true;
+      recognition = new SpeechRecognition();
       recognition.lang = "en-GB";
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
-      recognition.continuous = false;
+      recognition.continuous = true;
 
       try {
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
@@ -314,25 +406,24 @@
 
         await navigator.mediaDevices.getUserMedia({ audio: true });
         recognition.start();
-        micIcon.classList.add("active");
+        micIcon.classList.add('active');
+        isMicActive = true;
+        console.log('Microphone started');
       } catch (err) {
         appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone. Error: " + err.message, "bot");
         appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
-        window.recognitionActive = false;
-        micIcon.classList.remove("active");
         return;
       }
 
       recognition.onresult = (e) => {
-        input.value = e.results[0][0].transcript;
-        micIcon.classList.remove("active");
-        window.recognitionActive = false;
+        const transcript = e.results[e.results.length - 1][0].transcript;
+        input.value = transcript;
         send();
       };
 
       recognition.onerror = (e) => {
-        micIcon.classList.remove("active");
-        window.recognitionActive = false;
+        micIcon.classList.remove('active');
+        isMicActive = false;
         let errorMsg = "Voice input error: ";
         if (e.error === "no-speech") {
           errorMsg += "No speech detected. Please try again.";
@@ -345,11 +436,13 @@
         }
         appendMsg(errorMsg, "bot");
         appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
+        recognition = null;
       };
 
       recognition.onend = () => {
-        micIcon.classList.remove("active");
-        window.recognitionActive = false;
+        if (micIcon.classList.contains('active')) {
+          recognition.start();
+        }
       };
     };
   </script>
