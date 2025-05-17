@@ -296,18 +296,18 @@
     let voicesLoaded = false;
     let lastSpeechTime = 0;
     const DEBOUNCE_DELAY = 1000;
-    let lastBotMessage = null;
 
     function appendMsg(content, cls) {
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
       if (cls === 'bot') {
+        // Escape single quotes in content to prevent breaking the onclick
+        const escapedContent = content.replace(/'/g, "\\'");
         div.innerHTML = `
           <span>${content}</span>
-          <button class="speak-btn" onclick="speakMessage('${content}')">
+          <button class="speak-btn" onclick="speakMessage('${escapedContent}')">
             <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
           </button>`;
-        lastBotMessage = content;
       } else {
         div.innerHTML = content;
       }
@@ -371,6 +371,7 @@
     speechSynthesis.getVoices();
 
     function speakMessage(message) {
+      console.log('speakMessage called with:', message);
       if (!voicesLoaded) {
         console.warn('Voices not loaded yet, waiting for voiceschanged event');
         speechSynthesis.onvoiceschanged = () => {
@@ -444,38 +445,67 @@
     }
 
     async function send() {
+      console.log('send() called');
       const text = input.value.trim();
-      if (!text) return;
+      if (!text) {
+        console.log('No text entered, exiting send()');
+        return;
+      }
       appendMsg(text, 'user');
       input.value = '';
       showThinkingAnimation();
       console.log('Starting wait timer at', new Date().toISOString());
-      setTimeout(async () => {
-        console.log('Wait timer ended at', new Date().toISOString());
-        try {
-          const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: [{ role: "user", content: text }] })
-          });
-          const data = await res.json();
-          removeThinkingAnimation();
-          const reply = data.reply || "No response";
-          appendMsg(reply, "bot");
-        } catch {
-          removeThinkingAnimation();
-          appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
-        }
-      }, 2000); // 2-second delay
+      try {
+        setTimeout(async () => {
+          console.log('Wait timer ended at', new Date().toISOString());
+          try {
+            const res = await fetch("https://aichatbot-vx48.vercel.app/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messages: [{ role: "user", content: text }] })
+            });
+            const data = await res.json();
+            removeThinkingAnimation();
+            const reply = data.reply || "No response";
+            appendMsg(reply, "bot");
+          } catch (err) {
+            console.error('Fetch error in send():', err);
+            removeThinkingAnimation();
+            appendMsg("Connection error. Ensure you're on HTTPS and check your network.", "bot");
+          }
+        }, 2000); // 2-second delay
+      } catch (err) {
+        console.error('Error in send() setTimeout:', err);
+        removeThinkingAnimation();
+        appendMsg("Error sending message: " + err.message, "bot");
+      }
     }
 
-    sendBtn.onclick = send;
-    input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
+    // Add event listeners for send button and keypress
+    try {
+      sendBtn.addEventListener('click', () => {
+        console.log('Send button clicked');
+        send();
+      });
+    } catch (err) {
+      console.error('Error attaching click listener to sendBtn:', err);
+      appendMsg("Error initializing send button: " + err.message, "bot");
+    }
 
-    let lastSpeechTime = 0;
-    const DEBOUNCE_DELAY = 1000;
+    try {
+      input.addEventListener("keypress", e => {
+        if (e.key === "Enter") {
+          console.log('Enter key pressed');
+          send();
+        }
+      });
+    } catch (err) {
+      console.error('Error attaching keypress listener to input:', err);
+      appendMsg("Error initializing input keypress: " + err.message, "bot");
+    }
 
     micIcon.onclick = async () => {
+      console.log('micIcon clicked');
       if (!window.location.protocol.startsWith('https')) {
         appendMsg("Voice input requires HTTPS. Please access this site via a secure connection.", "bot");
         appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
@@ -508,6 +538,7 @@
 
       try {
         const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+        console.log('Microphone permission status:', permissionStatus.state);
         if (permissionStatus.state === 'denied') {
           appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone.", "bot");
           appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
@@ -518,8 +549,9 @@
         recognition.start();
         micIcon.classList.add('active');
         isMicActive = true;
-        console.log('Microphone started');
+        console.log('Microphone started successfully');
       } catch (err) {
+        console.error('Microphone initialization error:', err);
         appendMsg("Microphone access denied. Please enable permissions in your browser settings: Settings > Privacy > Microphone. Error: " + err.message, "bot");
         appendMsg("Alternatively, click <a href='https://aichatbot-vx48.vercel.app/chat.html' target='_blank'>here</a> to open in a new tab.", "bot");
         return;
